@@ -7,5 +7,5 @@ Download [CommonLibSSE-NG](https://github.com/CharmedBaryon/CommonLibSSE-NG) the
 Run `cmake` or use visual studio (code).
 # Credits
 Thiago for SKSE Menu Framework.<br>
-CharmedBaryon and their team for CommonLibSSE-NG.
+CharmedBaryon and their team for CommonLibSSE-NG.<br>
 Niels Lohmann for JSON.
