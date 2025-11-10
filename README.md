@@ -8,3 +8,4 @@ Run `cmake` or use visual studio (code).
 # Credits
 Thiago for SKSE Menu Framework.<br>
 CharmedBaryon and their team for CommonLibSSE-NG.
+Niels Lohmann for JSON.
