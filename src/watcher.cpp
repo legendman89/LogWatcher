@@ -359,9 +359,6 @@ void Logwatch::LogWatcher::startLogWatcher() {
         logger::info("  backlogThresholdBytes  : {} MB", cfg.backlogBoostThresholdMB);
         logger::info("  backlogBoostFactor     : {:.2f}", cfg.backlogBoostFactor);
         logger::info("  maxBoostCapBytes       : {} MB", cfg.maxBoostCapMB);
-        for (size_t i = 0; i < cfg.patterns.size(); ++i) {
-            logger::info("  Regex pattern[{}] key  : {}", i, cfg.patterns[i].first);
-        }
     }
     catch (const std::exception& e) {
         logger::error("Watcher start failed: {}", e.what());
