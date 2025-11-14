@@ -53,6 +53,12 @@ namespace Live {
         ImGui::PushStyleColor(bgType, newBg);
     }
 
+    inline void adjustBorder(int& pushes) {
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 2.0f);  pushes++;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6)); pushes++;
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2)); pushes++;
+    }
+
     inline void noButtonBorder(const bool& push) {
         if (push) {
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);

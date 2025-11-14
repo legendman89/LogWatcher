@@ -36,9 +36,10 @@ void Live::LogWatcherUI::RenderSettings()
 	static Logwatch::LogWatcherSettings prev_settings{};
 	static const Logwatch::LogWatcherSettings factory{};
 	if (!settings_init) { prev_settings = st; settings_init = true; }
-
+	int pushes = 0;
+	adjustBorder(pushes);
 	solidBackground(ImGuiCol_ChildBg);
-	if (ImGui::BeginChild("lw_settings", ImVec2(0, 0), ImGuiChildFlags_None)) {
+	if (ImGui::BeginChild("lw_settings", ImVec2(0, 0), ImGuiChildFlags_Border)) {
 
 		if (ImGui::CollapsingHeader("History", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Dummy(ImVec2(0, 4));
@@ -170,6 +171,7 @@ void Live::LogWatcherUI::RenderSettings()
 
 	}
 	ImGui::EndChild();
+	ImGui::PopStyleVar(pushes);
 	ImGui::PopStyleColor();
 }
 
@@ -178,6 +180,11 @@ void Live::LogWatcherUI::RenderWatch() {
 
 	auto& ps = Panel();
 
+	const ImGuiChildFlags childFlags = ImGuiChildFlags_Border;
+	int pushes = 0;
+
+	adjustBorder(pushes);
+
 	// whole panel lives inside section
 	bool pushedPanelBg = false;
 	if (ps.opaque) {
@@ -185,11 +192,11 @@ void Live::LogWatcherUI::RenderWatch() {
 		pushedPanelBg = true;
 	}
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1400, 900));
-	if (!ImGui::BeginChild("lw_panel", ImVec2(0, 0), ImGuiChildFlags_None,
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1400, 900)); pushes++;
+	if (!ImGui::BeginChild("lw_panel", ImVec2(0, 0), childFlags,
 		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
 		if (pushedPanelBg) ImGui::PopStyleColor();
-		ImGui::EndChild();
+		ImGui::EndChild(); ImGui::PopStyleVar(pushes);
 		return;
 	}
 
@@ -219,7 +226,7 @@ void Live::LogWatcherUI::RenderWatch() {
 	DrawTable(rows, view, ps.selected, ps.sortColumn, ps.sortAsc);
 	ImGui::EndChild();
 
-	ImGui::EndChild(); ImGui::PopStyleVar(); // lw_panel
+	ImGui::EndChild(); ImGui::PopStyleVar(pushes); // lw_panel
 	
 	if (pushedPanelBg) ImGui::PopStyleColor();
 

@@ -27,8 +27,23 @@ namespace Logwatch {
             : includeFileRegex(R"((?:^|[\\/]).+\.(?:log)$)", std::regex::icase)
             , excludeFileRegex(R"((^|[\\/])crash-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.log$)", std::regex::icase)
             , patterns{
-                {"error",   std::regex(R"((\[\s*(error|e)\s*\])|(\(\s*(error|e)\s*\))|(^|\s)(ERROR|ERR)\b|(^|\s)error:)", std::regex::icase)},
-                {"warning", std::regex(R"((\[\s*warn(?:ing)?\s*\])|(\(\s*warn(?:ing)?\s*\))|(^|\s)WARN(?:ING)?\b|(^|\s)warning:)", std::regex::icase)},
+                {"error", 
+                    std::regex(
+                      R"((\[\s*(error|e|critical|crit)\s*\])"
+                      R"(|\(\s*(error|e|critical|crit)\s*\))"
+                      R"(|(^|\s)(ERROR|ERR|CRITICAL|CRIT)\b)"
+                      R"(|(^|\s)error:)"
+                      R"(|(^|\s)critical:))",
+                    std::regex::icase)
+                },
+                {"warning", 
+                    std::regex(
+                      R"((\[\s*warn(?:ing)?\s*\])"
+                      R"(|\(\s*warn(?:ing)?\s*\))"
+                      R"(|(^|\s)WARN(?:ING)?\b)"
+                      R"(|(^|\s)warning:))",
+                    std::regex::icase)
+                },
                 {"fail",    std::regex(R"((\bfail(?:ed|ure)?\b|\[\s*fail(?:ed|ure)?\s*\]))", std::regex::icase)},
                 {"other",   std::regex(R"(.+)", std::regex::ECMAScript)}
             }
