@@ -13,7 +13,9 @@
 Logwatch::LogWatcher Logwatch::watcher;
 
 void Logwatch::OnMatch(const Match& m) {
-    SKSE::log::debug("Level:{} File:{} Line No.:{} Text:{}", m.level, m.file, m.lineNo, m.line);
+    if (m.file.find("Log Watcher") == std::string::npos) {
+        SKSE::log::debug("File:{} Level:{} Line No.:{}", m.file, m.level, m.lineNo);
+    }
     aggr.add(m);
 }
 
@@ -51,10 +53,36 @@ void Logwatch::LogWatcher::workerLoop(const std::stop_token& stop) {
 
     while (!stop.stop_requested()) {
 
+        if (!isFirstPollDone()) {
+            logger::info("Watcher initially starting or resumed");
+        }
+
+		// Handle paused state
+        if (getRunState() == RunState::Stopped) {
+            logger::info("Watcher paused; sleeping until resumed");
+            std::unique_lock wake_lock(_wake_mutex_);
+            _wake_cv_.wait(
+                wake_lock,
+                [&] {
+                    return stop.stop_requested() || getRunState() != RunState::Stopped;
+                }
+            );
+            continue;
+        }
+
 		// Unlocked scan (only critical parts have locks)
         scanOnce(stop);
 
         resetWarmingUp();
+
+		markFirstPollDone();
+
+		// Handle auto-stop after first poll
+        if (getRunState() == RunState::AutoStopPending) {
+            logger::info("Watcher pausing after first poll");
+			setRunState(RunState::Stopped);
+            continue;
+		}
 
         // get poll interval without keeping _mutex_ locked
         std::chrono::milliseconds sleep_for;
@@ -63,10 +91,14 @@ void Logwatch::LogWatcher::workerLoop(const std::stop_token& stop) {
             sleep_for = config.pollInterval;
         }
 
-        // Stop-aware wait (efficient than just sleeping)
+		// Stop-aware and paused-aware sleep
         std::unique_lock wake_lock(_wake_mutex_);
         const auto until = std::chrono::steady_clock::now() + sleep_for;
-        _wake_cv_.wait_until( wake_lock, until, [&] { return stop.stop_requested(); } );
+        _wake_cv_.wait_until( wake_lock, until, 
+            [&] { 
+                return stop.stop_requested() || getRunState() == RunState::Stopped;
+            } 
+        );
     }
 
     logger::info("Watcher thread exited");
@@ -278,23 +310,6 @@ void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, std::string_view li
             }
             return; // stop after first matching pattern
         }
-    }
-}
-
-void Logwatch::LogWatcher::resetAllFileStates(const bool& fromEnd) {
-    std::lock_guard lock(_mutex_);
-    logger::info("Resetting all file states to {}", fromEnd ? "end" : "beginning");
-    for (auto& [_, file] : files) {
-        std::error_code ec;
-        auto size = std::filesystem::file_size(file.path, ec);
-        if (ec) {
-            logger::error("Could not get size for {}: {}", file.path.string(), ec.message());
-            size = 0;
-        }
-        file.state.sizeLastSeen = size;
-        file.state.offset = fromEnd ? size : 0;
-        file.state.lineNo = 0;
-        file.state.lastPoll = Clock::now();
     }
 }
 

@@ -81,6 +81,20 @@ target_include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+# Ensure we get PDBs in Release too
+if (MSVC)
+    # Compile with debug info in Release
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        "$<$<CONFIG:Release>:/Zi>"
+    )
+
+    # Link with full debug info to produce .pdb file
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "$<$<CONFIG:Release>:/DEBUG:FULL>"
+    )
+endif()
+
+
 include(cmake/headerlist.cmake)
 include(cmake/sourcelist.cmake)
 
@@ -93,32 +107,33 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 function(copyOutputs TARGET_FOLDER)
-    # If you specify an <OUTPUT_FOLDER> (including via environment variables)
-    # then we'll copy your mod files into Skyrim or a mod manager for you!
-
     # Copy the SKSE plugin .dll files into the SKSE/Plugins/ folder
     set(DLL_FOLDER "${TARGET_FOLDER}/SKSE/Plugins")
 
     message(STATUS "SKSE plugin output folder: ${DLL_FOLDER}")
 
+    # Always copy the DLL
     add_custom_command(
         TARGET "${PROJECT_NAME}"
         POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${DLL_FOLDER}"
-        COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>" "${DLL_FOLDER}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<TARGET_FILE:${PROJECT_NAME}>"
+                "${DLL_FOLDER}/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
         VERBATIM
     )
 
-    # If you perform a "Debug" build, also copy .pdb file (for debug symbols)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_custom_command(
-            TARGET "${PROJECT_NAME}"
-            POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_PDB_FILE:${PROJECT_NAME}>" "${DLL_FOLDER}/$<TARGET_PDB_FILE_NAME:${PROJECT_NAME}>"
-            VERBATIM
-        )
-    endif()
+    # Also copy the PDB (if one is produced for this configuration)
+    add_custom_command(
+        TARGET "${PROJECT_NAME}"
+        POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+                "${DLL_FOLDER}/$<TARGET_PDB_FILE_NAME:${PROJECT_NAME}>"
+        VERBATIM
+    )
 endfunction()
+
 
 
 if(DEFINED ENV{SKYRIM_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_FOLDER}/Data")

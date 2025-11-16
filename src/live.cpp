@@ -30,16 +30,66 @@ void Live::takeSnapshot(std::vector<TableRow>& rows) {
 
 void Live::LogWatcherUI::RenderSettings()
 {
+	const auto rs = Logwatch::watcher.getRunState();
 	auto& st = Logwatch::Settings();
 
 	static bool settings_init = false;
 	static Logwatch::LogWatcherSettings prev_settings{};
 	static const Logwatch::LogWatcherSettings factory{};
 	if (!settings_init) { prev_settings = st; settings_init = true; }
+
 	int pushes = 0;
 	adjustBorder(pushes);
 	solidBackground(ImGuiCol_ChildBg);
 	if (ImGui::BeginChild("lw_settings", ImVec2(0, 0), ImGuiChildFlags_Border)) {
+
+		ImGui::Dummy(ImVec2(0, 4));
+		if (rs == Logwatch::RunState::Stopped) {
+			if (Live::CTAButton("Resume", true)) {
+				st.pauseWatcher = false;
+				Logwatch::watcher.resetFirstPoll();
+				Logwatch::watcher.setRunState(Logwatch::RunState::Running);
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::BeginTooltip();
+				ImGui::TextUnformatted(
+					"Resume real-time log watching using the current settings."
+				);
+				ImGui::EndTooltip();
+			}
+		}
+		else if (rs == Logwatch::RunState::AutoStopPending) {
+			Live::CTAButton("Pausing...", false);
+			if (ImGui::IsItemHovered()) {
+				ImGui::BeginTooltip();
+				ImGui::TextUnformatted(
+					"Watcher is finishing the current scan then will pause.\n"
+					"You can resume once it has fully stopped.");
+				ImGui::EndTooltip();
+			}
+		}
+		else if (rs == Logwatch::RunState::Running) {
+			if (Live::CTAButton("Pause", true)) {
+				st.pauseWatcher = true;
+				const bool isPollDone = Logwatch::watcher.isFirstPollDone();
+				if (isPollDone) {
+					Logwatch::watcher.setRunState(Logwatch::RunState::Stopped);
+				}
+				else {
+					Logwatch::watcher.setRunState(Logwatch::RunState::AutoStopPending);
+				}
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::BeginTooltip();
+				ImGui::TextUnformatted(
+					"Pause watching after the current scan.\n"
+					"Existing results stay visible, but no new live feed until you resume.\n"
+					"This state is persistent on game save.\n"
+				);
+				ImGui::EndTooltip();
+			}
+		}
+		ImGui::Dummy(ImVec2(0, 6));
 
 		if (ImGui::CollapsingHeader("History", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Dummy(ImVec2(0, 4));
@@ -113,8 +163,14 @@ void Live::LogWatcherUI::RenderSettings()
 		static BusyState busyState = BusyState::Idle;
 		const bool inflight = Logwatch::Restart::ApplyOnTheFly();
 		const bool finished = Logwatch::Restart::ApplyDone();
-		const bool canApply =	 (st != prev_settings)	&& busyState != BusyState::Working;
-		const bool canDefaults = (st != factory)		&& busyState != BusyState::Working;
+
+		// Drop pauseWatcher from comparison
+		auto stApply = st; stApply.pauseWatcher = false;
+		auto prevApply = prev_settings; prevApply.pauseWatcher = false;
+		auto factoryApply = factory; factoryApply.pauseWatcher = false;
+
+		const bool canApply =	 (stApply != prevApply)	   && busyState != BusyState::Working;
+		const bool canDefaults = (stApply != factoryApply) && busyState != BusyState::Working;
 
 		if (Live::CTAButton("Save and Apply", canApply)) {
 			busyState = BusyState::Working;

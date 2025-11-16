@@ -22,6 +22,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
         auto& config = Logwatch::watcher.configurator();
         config.LoadFromSettings(s);
         Logwatch::aggr.setCapacity(config.cacheCap);
+        Logwatch::watcher.checkRunState();
         Logwatch::watcher.addLogDirectories();
         Logwatch::watcher.startLogWatcher();
         break;

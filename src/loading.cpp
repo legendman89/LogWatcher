@@ -88,6 +88,9 @@ void Live::RenderDoneWithLabel(BusyState& state, const std::string& msg, const f
 
 void Live::RenderLoadingOverlay(const std::string& msg, const float& offset, Positioner pos) {
 
+    if (Logwatch::watcher.getRunState() == Logwatch::RunState::Stopped)
+		return;
+
     static BusyContext ctx{};
     const double now = ImGui::GetTime();
     const bool warm = Logwatch::watcher.isWarmingUp();

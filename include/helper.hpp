@@ -55,7 +55,7 @@ namespace Live {
 
     inline void adjustBorder(int& pushes) {
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 2.0f);  pushes++;
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6)); pushes++;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8)); pushes++;
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2)); pushes++;
     }
 

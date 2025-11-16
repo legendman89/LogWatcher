@@ -20,6 +20,8 @@
 
 namespace Logwatch {
 
+    enum class RunState { Running, AutoStopPending, Stopped };
+
     void OnMatch(const Match& m);
 
     LogType classify(const std::filesystem::path& p);
@@ -29,6 +31,11 @@ namespace Logwatch {
     class LogWatcher {
     private:
 
+		// Run state for auto-stop button
+        std::atomic<RunState> runState{ RunState::Running };
+        std::atomic<bool> firstPollDone{ false };
+
+		// Warming up overlay state
         std::atomic<bool> warming_up{ true };
 
         // For locks
@@ -92,7 +99,19 @@ namespace Logwatch {
                 return;
             }
             logger::info("Starting Watcher thread");
-            worker = std::jthread([this](const std::stop_token& st) { workerLoop(st); });
+            worker = std::jthread(
+                [this](const std::stop_token& st) { 
+                    try {
+                        workerLoop(st);
+                    }
+                    catch (const std::exception& e) {
+                        logger::error("Unhandled exception in Watcher thread: {}", e.what());
+                    }
+                    catch (...) {
+                        logger::error("Unknown unhandled exception in Watcher thread");
+					}
+                }
+            );
         }
 
         inline void stop() {
@@ -103,8 +122,24 @@ namespace Logwatch {
             worker.join();
         }
 
-        // Reset all file states (offset/line/time).
-        void resetAllFileStates(const bool& fromEnd);
+        inline void setRunState(const RunState& rs) {
+            runState.store(rs, std::memory_order_relaxed);
+            _wake_cv_.notify_all();
+		}
+
+        inline RunState getRunState() const {
+			return runState.load(std::memory_order_relaxed);
+		}
+
+        inline void checkRunState() {
+            if (config.pauseWatcher) {
+                logger::info("Watcher is paused per settings; pausing after first poll");
+                runState = RunState::AutoStopPending;
+            }
+            else {
+				runState = RunState::Running;
+            }
+		}
 
         // Clear files map
         void clear() {
@@ -120,6 +155,18 @@ namespace Logwatch {
         inline void nudge() {
             _wake_cv_.notify_all();
         }
+
+        inline void resetFirstPoll() noexcept {
+            firstPollDone.store(false, std::memory_order_relaxed);
+		}
+
+        inline void markFirstPollDone() noexcept {
+			firstPollDone.store(true, std::memory_order_relaxed);
+		}
+
+        inline bool isFirstPollDone() const noexcept {
+			return firstPollDone.load(std::memory_order_relaxed);
+		}
 
         inline void setWarmingUp() noexcept {
             warming_up.store(true, std::memory_order_relaxed);
