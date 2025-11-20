@@ -33,8 +33,7 @@ namespace Live {
     }
 
     inline std::string FormatWhen(const std::chrono::system_clock::time_point& tp) {
-        using namespace std::chrono;
-        auto t = system_clock::to_time_t(tp);
+        auto t = std::chrono::system_clock::to_time_t(tp);
         std::tm tm{};
 #if defined(_WIN32)
         localtime_s(&tm, &t);
@@ -44,6 +43,31 @@ namespace Live {
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
         return std::string(buf);
+    }
+
+    inline std::string sinceWhen(const std::chrono::system_clock::time_point& when) {
+        auto now = std::chrono::system_clock::now();
+        auto diff = duration_cast<std::chrono::seconds>(now - when).count();
+
+        if (diff < 0)
+            diff = 0;
+
+        if (diff < 3)
+            return "just now";
+
+        if (diff < 60)
+            return std::to_string(diff) + " seconds ago";
+
+        auto minutes = diff / 60;
+        if (minutes < 60)
+            return std::to_string(minutes) + (minutes == 1 ? " minute ago" : " minutes ago");
+
+        auto hours = minutes / 60;
+        if (hours < 24)
+            return std::to_string(hours) + (hours == 1 ? " hour ago" : " hours ago");
+
+        auto days = hours / 24;
+        return std::to_string(days) + (days == 1 ? " day ago" : " days ago");
     }
 
     inline void solidBackground(const ImGuiCol& bgType) {

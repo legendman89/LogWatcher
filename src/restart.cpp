@@ -6,14 +6,14 @@
 #include "restart.hpp"
 
 
-std::atomic<bool> Logwatch::Restart::apply_inflight{ false };
+std::atomic<bool> Logwatch::Restart::apply_inprogress{ false };
 std::atomic<bool> Logwatch::Restart::apply_done{ false };
 
 bool Logwatch::Restart::restartWatcher(const LogWatcherSettings& st, const Config& prev_config) {
 
 	bool expected = false;
-	if (!apply_inflight.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
-		logger::info("Restart already in flight; ignoring duplicate Apply.");
+	if (!apply_inprogress.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+		logger::info("Restart already in progress; ignoring duplicate Apply.");
 		return false; // already running
 	}
 
@@ -42,7 +42,7 @@ bool Logwatch::Restart::restartWatcher(const LogWatcherSettings& st, const Confi
 				watcher.clear();
 				aggr.restoreAndClear();
 				watcher.startLogWatcher();
-				// wait until fully live this kisses the backup goodbye
+				// wait until fully live and kiss the backup goodbye
 				std::jthread([] {
 					while (Logwatch::watcher.isWarmingUp()) {
 						std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -68,7 +68,7 @@ bool Logwatch::Restart::restartWatcher(const LogWatcherSettings& st, const Confi
 			apply_done.store(false, std::memory_order_relaxed);
 		}
 
-		apply_inflight.store(false, std::memory_order_relaxed);
+		apply_inprogress.store(false, std::memory_order_relaxed);
 
 	}).detach();
 

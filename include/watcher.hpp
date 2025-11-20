@@ -17,6 +17,9 @@
 #include "state.hpp"
 #include "config.hpp"
 #include "logger.hpp"
+#include "plugin.hpp"
+#include "statistics.hpp"
+#include "mail.hpp"
 
 namespace Logwatch {
 
@@ -31,6 +34,9 @@ namespace Logwatch {
     class LogWatcher {
     private:
 
+        // Worker thread
+        std::jthread worker;
+
 		// Run state for auto-stop button
         std::atomic<RunState> runState{ RunState::Running };
         std::atomic<bool> firstPollDone{ false };
@@ -39,20 +45,33 @@ namespace Logwatch {
         std::atomic<bool> warming_up{ true };
 
         // For locks
-        std::mutex _mutex_;
+        mutable std::mutex _mutex_;
 
         // Sleep/wakeup for the worker
         std::mutex                  _wake_mutex_;
         std::condition_variable_any _wake_cv_;
-
-        // Worker thread
-        std::jthread worker;
 
         Config   config;
         Callback callback;
 
         std::vector<fs::path>                         roots;
         std::unordered_map<std::string, FileInfo>     files;
+
+        // For notifications
+        bool gameReady{};
+
+        // Periodic summary
+        Counts periodicLastTotals{};
+        Clock::time_point periodicNextAt{ };
+        bool periodicReady{ false };
+        std::unordered_map<std::string, Counts> periodicLastPerMod;
+        
+        // Pinned alerts
+        std::unordered_map<std::string, PinnedSnapshot> pinnedState;
+        MessageQueue messages;
+
+        // Mail
+        MailBox mailbox;
 
         // Worker body
         void workerLoop(const std::stop_token& stop);
@@ -65,9 +84,54 @@ namespace Logwatch {
         void parseBufferAndEmit(FileInfo& fi, std::string&& chunk, const std::stop_token& stop);
         void emitIfMatch(const fs::path& file, std::string_view line, uint64_t lineNo);
 
+        // Notification functions
+        void releaseNotifications();
+        void updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval);
+        void mayNotifyPinnedAlerts(const Snapshot& snap);
+        void mayNorifyPeriodicAlerts(const Snapshot& snap);
+
+        inline void scheduleNotification(const std::string& message) {
+            messages.q.push_back(message);
+        }
+
+        inline void scheduleMail(MailEntry&& e) {
+            std::lock_guard lock(_mutex_);
+            mailbox.q.push_back(std::move(e));
+            if (mailbox.q.size() > mailbox.cap)
+                mailbox.q.pop_front();
+        }
+
+        inline uint64_t levelCount(const Counts& c, const int& minLevel) {
+            switch (minLevel) {
+                case 0:
+                    return c.errors;
+                case 1:
+                    return c.errors + c.warnings;
+                default:
+                    return c.errors + c.warnings + c.fails;
+            }
+        }
+
+        inline void updatePinnedBase(const std::string& modKey, const Counts& curr, const Clock::time_point& now) {
+            PinnedSnapshot ps;
+            ps.counts = curr;
+            ps.lastAlertAt = now;
+            pinnedState[modKey] = ps;
+        }
+
+        inline void computeDiff(Counts& d, const Counts& curr, const Counts& prev) {
+            d.errors = (curr.errors > prev.errors) ? (curr.errors - prev.errors) : 0;
+            d.warnings = (curr.warnings > prev.warnings) ? (curr.warnings - prev.warnings) : 0;
+            d.fails = (curr.fails > prev.fails) ? (curr.fails - prev.fails) : 0;
+            d.others = (curr.others > prev.others) ? (curr.others - prev.others) : 0;
+        }
+
     public:
         LogWatcher() = default;
         ~LogWatcher() { stop(); }
+
+        void setGameReady(const bool& val) noexcept { gameReady = val; }
+        bool isGameReady() const noexcept { return gameReady; }
 
         bool isWarmingUp() const noexcept { return warming_up.load(std::memory_order_relaxed); }
 
@@ -118,13 +182,13 @@ namespace Logwatch {
             if (!worker.joinable()) return;
             logger::info("Stopping Watcher thread");
             worker.request_stop();
-            _wake_cv_.notify_all(); // can wake any sleeping worker
+            nudge(); // can wake any sleeping worker
             worker.join();
         }
 
         inline void setRunState(const RunState& rs) {
             runState.store(rs, std::memory_order_relaxed);
-            _wake_cv_.notify_all();
+            nudge(); // wake UI thread if needed
 		}
 
         inline RunState getRunState() const {
@@ -154,6 +218,22 @@ namespace Logwatch {
 
         inline void nudge() {
             _wake_cv_.notify_all();
+        }
+
+        inline void resetNotifications() {
+            periodicReady = false;
+            periodicLastPerMod.clear();
+            periodicLastTotals = {};
+            pinnedState.clear();
+        }
+
+        std::vector<Logwatch::MailEntry> snapshotMailbox() const {
+            std::lock_guard lock(_mutex_);
+            std::vector<MailEntry> out;
+            out.reserve(mailbox.q.size());
+            for (const auto& m : mailbox.q)
+                out.push_back(m);
+            return out;
         }
 
         inline void resetFirstPoll() noexcept {

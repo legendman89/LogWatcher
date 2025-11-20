@@ -20,31 +20,51 @@ void Logwatch::OnMatch(const Match& m) {
 }
 
 Logwatch::LogType Logwatch::classify(const std::filesystem::path& p) {
-    const std::string s = p.string();
-    return (s.find("Logs\\Script") != std::string::npos ||
-        s.find("Logs/Script") != std::string::npos)
-        ? LogType::Papyrus
-        : LogType::Generic;
+    const std::string s = Utils::toUTF8(p);
+    return (s.find("Logs\\Script") != std::string::npos || s.find("Logs/Script") != std::string::npos)
+        ? LogType::Papyrus : LogType::Generic;
 }
 
 bool Logwatch::LogWatcher::shouldInclude(const fs::path& file) const {
-    const auto s = file.filename().string();
+    const auto s = Utils::toUTF8(file.filename());
     if (!std::regex_search(s, config.includeFileRegex)) return false;
     if (std::regex_search(s, config.excludeFileRegex)) return false;
     return true;
 }
 
 void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::path& root, const std::stop_token& stop) {
-    std::error_code ec;
-    if (!fs::exists(root, ec)) return;
-    if (!fs::is_directory(root, ec)) return;
 
-    for (auto it = fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied, ec);
-        it != fs::recursive_directory_iterator() && !stop.stop_requested(); ++it) {
-        if (ec) { ec.clear(); continue; }
+    std::error_code ec;
+    if (!fs::exists(root, ec) || !fs::is_directory(root, ec)) return;
+
+    auto it = fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied, ec);
+    fs::recursive_directory_iterator end;
+
+    if (ec) {
+        const std::string rootToPrint = Utils::replaceUsername(Utils::toUTF8(root));
+        logger::info("discoverFiles: cannot iterate over {}: {}", rootToPrint, ec.message());
+        return;
+    }
+
+    while (it != end) {
+
+        if (stop.stop_requested()) break;
+
         const auto& p = it->path();
+        
+        // collect files
         if (fs::is_regular_file(p, ec) && shouldInclude(p)) {
             out.push_back(p);
+        }
+
+        ec.clear();
+
+        it.increment(ec); // increment iterator safely
+
+        if (ec) {
+            const std::string rootToPrint = Utils::replaceUsername(Utils::toUTF8(root));
+            logger::info("discoverFiles: skipping path under {}: {}", rootToPrint, ec.message());
+            ec.clear();
         }
     }
 }
@@ -70,12 +90,19 @@ void Logwatch::LogWatcher::workerLoop(const std::stop_token& stop) {
             continue;
         }
 
-		// Unlocked scan (only critical parts have locks)
-        scanOnce(stop);
+        scanOnce(stop); // Unlocked scan (only critical parts have locks)
 
         resetWarmingUp();
 
 		markFirstPollDone();
+
+        // Schedule notifications / mails
+        if (!stop.stop_requested()) {
+            const auto snap = aggr.snapshot();
+            mayNotifyPinnedAlerts(snap);
+            mayNorifyPeriodicAlerts(snap);
+            releaseNotifications();
+        }
 
 		// Handle auto-stop after first poll
         if (getRunState() == RunState::AutoStopPending) {
@@ -93,7 +120,7 @@ void Logwatch::LogWatcher::workerLoop(const std::stop_token& stop) {
 
 		// Stop-aware and paused-aware sleep
         std::unique_lock wake_lock(_wake_mutex_);
-        const auto until = std::chrono::steady_clock::now() + sleep_for;
+        const auto until = Clock::now() + sleep_for;
         _wake_cv_.wait_until( wake_lock, until, 
             [&] { 
                 return stop.stop_requested() || getRunState() == RunState::Stopped;
@@ -117,7 +144,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         if (stop.stop_requested()) return;
 
         std::error_code ec;
-        const auto canon = fs::weakly_canonical(p, ec).string();
+        const auto canonPath = fs::weakly_canonical(p, ec);
+        const auto canon = Utils::toUTF8(canonPath);
 
 		// critical section: check if we need to insert
         bool need_insert = false;
@@ -157,7 +185,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 
     if (stop.stop_requested()) return;
 
-    // Cache keys only under lock to avoid stalling I/O
+    // Cache keys under lock
     std::vector<std::string> keys;
     {
         std::lock_guard lock(_mutex_);
@@ -297,7 +325,8 @@ void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, std::string_view li
         if (std::regex_search(line.begin(), line.end(), rx)) {
             if (callback) {
                 Match m;
-                m.file = Utils::spacify(file.filename().string());
+                const auto fileName = Utils::toUTF8(file.filename());
+                m.file = Utils::spacify(fileName);
                 m.line = Utils::nukeLogLine(std::string(line));
                 m.keyword = name;
                 if (name == "error")        m.level = "error";
@@ -334,46 +363,48 @@ void Logwatch::LogWatcher::addLogDirectories() {
 }
 
 void Logwatch::LogWatcher::addIfExists(const std::filesystem::path& p) {
+
     std::error_code ec;
     const bool exists = std::filesystem::exists(p, ec);
-    if (ec) { logger::info("exists({}): {}", p.string(), ec.message()); return; }
+
+    const auto pathToPrint = Utils::replaceUsername(Utils::toUTF8(p));
+
+    if (ec) {
+        logger::info("exists({}): {}", pathToPrint, ec.message());
+        return; 
+    }
+
     const bool is_dir = std::filesystem::is_directory(p, ec);
-    if (ec) { logger::info("is_directory({}): {}", p.string(), ec.message()); return; }
+
+    if (ec) { 
+        logger::info("is_directory({}): {}", pathToPrint, ec.message());
+        return; 
+    }
 
     if (exists && is_dir) {
         try {
-            watcher.addDirectory(p);
-            logger::info("Watching {}", p.string());
+            addDirectory(p);
+            logger::info("Watching {}", pathToPrint);
         }
         catch (const std::exception& e) {
-            logger::error("addDirectory({}) failed: {}", p.string(), e.what());
+            logger::error("addDirectory({}) failed: {}", pathToPrint, e.what());
         }
     }
     else {
-        logger::info("Skipping {}", p.string());
+        logger::info("Skipping {}", pathToPrint);
     }
 }
 
 void Logwatch::LogWatcher::startLogWatcher() {
     try {
-        watcher.setWarmingUp();
-        watcher.setCallback(OnMatch);
-        watcher.start();
+        resetNotifications();
 
-        const auto& cfg = watcher.configurator();
+        setWarmingUp();
+        setCallback(OnMatch);
+        start();
+
         logger::info("Watcher started with configuration:");
-        logger::info("  deepScan               : {}", cfg.deepScan ? "true" : "false");
-        logger::info("  watchPapyrus           : {}", cfg.watchPapyrus ? "true" : "false");
-        logger::info("  pollInterval           : {} ms", cfg.pollIntervalMs);
-        logger::info("  cacheCap               : {} messages", cfg.cacheCap);
-        logger::info("  maxChunkBytes          : {} KB", cfg.maxChunkKB);
-        logger::info("  maxLineBytes           : {} KB", cfg.maxLineKB);
-        logger::info("  papyrusMaxChunkBytes   : {} KB", cfg.papyrusMaxChunkKB);
-        logger::info("  papyrusMaxLineBytes    : {} KB", cfg.papyrusMaxLineKB);
-        logger::info("  autoBoostOnBacklog     : {}", cfg.autoBoostOnBacklog ? "true" : "false");
-        logger::info("  backlogThresholdBytes  : {} MB", cfg.backlogBoostThresholdMB);
-        logger::info("  backlogBoostFactor     : {:.2f}", cfg.backlogBoostFactor);
-        logger::info("  maxBoostCapBytes       : {} MB", cfg.maxBoostCapMB);
+        config.print();
     }
     catch (const std::exception& e) {
         logger::error("Watcher start failed: {}", e.what());

@@ -157,6 +157,69 @@ void Live::LogWatcherUI::RenderSettings()
 			ImGui::Dummy(ImVec2(0, 4));
 		}
 
+		if (ImGui::CollapsingHeader("Notifications System", 0)) {
+			ImGui::Dummy(ImVec2(0, 4));
+
+			ImGui::Checkbox("Enable notifications / mailbox", &st.notificationsEnabled);
+			HelpMarker("When enabled, the Watcher schedules HUD notifications and/or mailbox messages.");
+
+			ImGui::SliderInt("HUD notification delay (sec)", &st.HUDDelaySec, 1, 10);
+			HelpMarker("After firing an HUD notification, wait at least this long before another one");
+			ImGui::Dummy(ImVec2(0, 4));
+
+			ImGui::BeginDisabled(!st.notificationsEnabled);
+
+			ImGui::Checkbox("Enable periodic summaries", &st.periodicSummaryEnabled);
+			HelpMarker("Every N seconds, summarize new issues since the last summary.\n"
+				"Useful when you want a high-level view of how unstable your load order is.");
+			ImGui::BeginDisabled(!st.periodicSummaryEnabled);
+
+			ImGui::SliderInt("Periodic interval (sec)", &st.periodicIntervalSec, 60, 3600);
+			HelpMarker("How often to emit a periodic summary.\n"
+				"Shorter intervals give more frequent updates, longer intervals are quieter.");
+
+			ImGui::SliderInt("Max mods listed per periodic summary", &st.periodicMaxMods, 1, 10);
+			HelpMarker("Maximum number of individual mods briefed in each periodic summary.\n"
+				"The rest are grouped as \"+N more\".");
+
+			static const char* levelItems[] = {
+				"Errors only",
+				"Errors + warnings",
+				"Errors + warnings + fails"
+			};
+
+			ImGui::Combo("Minimum level (periodic alerts)", &st.periodicMinLevel, levelItems, 3);
+			HelpMarker("Controls which log levels are considered in a summary.\n"
+			"0 = only errors, 1 = errors + warnings, 2 = errors + warnings + fails.");
+
+			ImGui::EndDisabled(); // periodic options
+			ImGui::Dummy(ImVec2(0, 4));
+
+			ImGui::Checkbox("Enable pinned mod alerts", &st.pinnedAlertsEnabled);
+			HelpMarker("When enabled, pinned mods are watched more closely.\n"
+				"If a pinned mod produces new issues, a short notification is generated\n"
+				"and a detailed entry is added to the Mailbox tab.");
+
+			ImGui::BeginDisabled(!st.pinnedAlertsEnabled);
+
+			ImGui::SliderInt("Min new issues to alert", &st.pinnedMinNewIssues, 1, 50);
+			HelpMarker("Minimum number of new issues from a pinned mod before an alert is raised.\n"
+				"Higher values reduce spam on noisy mods.");
+
+			ImGui::SliderInt("Per-mod cooldown (sec)", &st.pinnedAlertCooldownSec, 10, 3600);
+			HelpMarker("After alerting for a pinned mod, wait at least this long before\n"
+				"alerting again for the same mod.");
+
+			ImGui::Combo("Minimum level (pinned alerts)", &st.pinnedMinLevel, levelItems, 3);
+			HelpMarker("0 = only errors, 1 = errors + warnings, 2 = errors + warnings + fails.");
+
+			ImGui::EndDisabled(); // pinned options
+
+			ImGui::EndDisabled(); // all notifications
+			ImGui::Dummy(ImVec2(0, 4));
+		}
+
+
 		ImGui::Separator();
 
 		// Applying state
@@ -419,6 +482,166 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	if (pushedWinBg) ImGui::PopStyleColor();
 }
 
+void Live::LogWatcherUI::RenderMailbox()
+{
+	auto entries = Logwatch::watcher.snapshotMailbox();
+	static int selected = -1;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1400, 900));
+	if (!ImGui::BeginChild("lw_mailbox_panel", ImVec2(0, 0), ImGuiChildFlags_None,
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
+		ImGui::EndChild();
+		ImGui::PopStyleVar();
+		return;
+	}
+
+	// Left: mailbox table
+	ImGui::BeginChild("lw_mailbox_list", ImVec2(0.55f * GetAvail().x, 0),
+		ImGuiChildFlags_Border, ImGuiWindowFlags_None);
+
+	if (ImGui::BeginTable("MailboxTable", 4,
+		ImGuiTableFlags_RowBg |
+		ImGuiTableFlags_BordersInnerH |
+		ImGuiTableFlags_Resizable |
+		ImGuiTableFlags_ScrollY))
+	{
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+		ImGui::TableSetupColumn("Title", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Summary", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+		ImGui::TableHeadersRow();
+
+		for (auto i = 0; i < (int)entries.size(); ++i) {
+
+			const auto& e = entries[i];
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			// TODO: replace type with fontawesome icons
+			const char* typeLabel = "";
+			ImVec4 typeColor(1, 1, 1, 1);
+			switch (e.type) {
+				case Logwatch::MailType::PeriodicAlert:
+				{
+					typeLabel = "Summary";
+					typeColor = Colors::White;
+					break;
+				}
+				case Logwatch::MailType::PinnedAlert:
+				{
+					typeLabel = "Pinned";
+					typeColor = Colors::PinGold;
+					break;
+				}
+			}
+			ImGui::PushStyleColor(ImGuiCol_Text, typeColor);
+			ImGui::TextUnformatted(typeLabel);
+			ImGui::PopStyleColor();
+
+			// Title
+			ImGui::TableNextColumn();
+			bool rowSelected = (i == selected);
+			if (ImGui::Selectable(e.title.c_str(), rowSelected,
+				ImGuiSelectableFlags_SpanAllColumns)) {
+				selected = i;
+			}
+
+			// Summary
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(e.summary.c_str());
+
+			// When
+			ImGui::TableNextColumn();
+			auto when = sinceWhen(e.when);
+			ImGui::TextUnformatted(when.c_str());
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::EndChild();
+
+	ImGui::SameLine();
+
+	// Right: details for selected entry
+	ImGui::BeginChild("lw_mailbox_detail", ImVec2(0, 0), ImGuiChildFlags_Border, ImGuiWindowFlags_None);
+
+	if (entries.empty()) {
+		selected = -1;
+		ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
+		ImGui::TextDisabled("No new messages.");
+		ImGui::PopStyleColor();
+	}
+	else if (selected < 0 || selected >= (int)entries.size()) {
+		ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
+		ImGui::TextDisabled("Select a message on the left to see details.");
+		ImGui::PopStyleColor();
+	}
+	else {
+		const auto& e = entries[selected];
+
+		auto when = FormatWhen(e.when);
+
+		ImGui::TextWrapped("%s", e.title.c_str());
+		ImGui::Separator();
+		ImGui::TextUnformatted(e.summary.c_str());
+		ImGui::Text("%s", when.c_str());
+		ImGui::Separator();
+
+		if (!e.mods.empty()) {
+			if (ImGui::BeginTable("MailboxDetailMods", 4,
+				ImGuiTableFlags_RowBg |
+				ImGuiTableFlags_BordersInnerH |
+				ImGuiTableFlags_Resizable))
+			{
+				ImGui::TableSetupColumn("Mod", ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableSetupColumn("Errors", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+				ImGui::TableSetupColumn("Warnings", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+				ImGui::TableSetupColumn("Fails", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+				ImGui::TableHeadersRow();
+
+				for (const auto& m : e.mods) {
+					ImGui::TableNextRow();
+
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(m.mod.c_str());
+
+					ImGui::TableNextColumn();
+					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Error);
+					ImGui::Text("%llu", m.errors);
+					if (m.errors > 0) ImGui::PopStyleColor();
+
+					ImGui::TableNextColumn();
+					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
+					ImGui::Text("%llu", m.warnings);
+					if (m.errors > 0) ImGui::PopStyleColor();
+
+					ImGui::TableNextColumn();
+					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
+					ImGui::Text("%llu", m.fails);
+					if (m.errors > 0) ImGui::PopStyleColor();
+				}
+
+				ImGui::EndTable();
+			}
+		}
+		else {
+			ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
+			ImGui::TextDisabled("No details for this mod.");
+			ImGui::PopStyleColor();
+		}
+
+		// TODO: a button to jump to Watch
+		// if (ImGui::Button("View in Watch")) ...
+	}
+
+	ImGui::EndChild();
+
+	ImGui::EndChild();
+	ImGui::PopStyleVar();
+}
+
 
 void Live::Register() {
 	if (!SKSEMenuFramework::IsInstalled()) {
@@ -426,5 +649,6 @@ void Live::Register() {
 	}
 	SKSEMenuFramework::SetSection("Log Watcher");
 	SKSEMenuFramework::AddSectionItem("Watch", LogWatcherUI::RenderWatch);
+	SKSEMenuFramework::AddSectionItem("Mailbox", LogWatcherUI::RenderMailbox);
 	SKSEMenuFramework::AddSectionItem("Settings", LogWatcherUI::RenderSettings);
 }

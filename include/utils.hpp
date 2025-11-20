@@ -5,6 +5,7 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <filesystem>
 
 namespace Utils {
 
@@ -28,8 +29,14 @@ namespace Utils {
         while (isSpace(*str)) ++str;
     }
 
-    inline char toLowerC(char c) { return (char)std::tolower((unsigned char)c); }
-    inline bool isWordChar(char c) { return std::isalnum((unsigned char)c) || c == '_'; }
+    inline char toLowerC(const char& c) { return (char)std::tolower(int(c)); }
+
+    inline bool isWordChar(const char& c) { return std::isalnum(int(c)) || c == '_'; }
+
+    inline std::string toUTF8(const std::filesystem::path& p) {
+        auto u8 = p.u8string();
+        return std::string(u8.begin(), u8.end());
+    }
 
     inline bool isCppExt(const std::string& ext) {
         static const char* k[] = { "c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "ipp", "inl", "tpp", "ixx", "cppm" };
@@ -57,6 +64,23 @@ namespace Utils {
         for (size_t j = pos + 1; j < i; ++j) ext.push_back(toLowerC(s[j]));
         if (extEndOut) *extEndOut = i;
         return isCppExt(ext);
+    }
+
+    inline std::string replaceUsername(const std::string path, const std::string keyword = "HIDDEN") {
+        const std::string users = "\\Users\\";
+        const auto pos = path.find(users);
+        if (pos == std::string::npos) {
+            return path;
+        }
+
+        const size_t startUsername = pos + users.size();
+        const size_t endUsername = path.find("\\", startUsername);
+
+        if (endUsername == std::string::npos) {
+            return path.substr(0, startUsername) + keyword;
+        }
+
+        return path.substr(0, startUsername) + keyword + path.substr(endUsername);
     }
 
     inline void stripLeadingCppPath(std::string& s) {

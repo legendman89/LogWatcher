@@ -16,7 +16,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     switch (msg->type) {
     case SKSE::MessagingInterface::kPostLoad:
     {
-        logger::info("SKSE finished loading");
+        logger::info("SKSE finished loading; loading watcher settings");
 		auto& s = Logwatch::Settings(); // load defaults first
 		Logwatch::settingsPersister.loadState(); // then load persisted settings
         auto& config = Logwatch::watcher.configurator();
@@ -29,9 +29,26 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     }
     case SKSE::MessagingInterface::kSaveGame: 
     {
-		logger::info("Game save detected; saving settings");
+		logger::info("Game save detected; saving watcher pinned mods and settings");
         Logwatch::settingsPersister.saveState();
 		break;
+    }
+    case SKSE::MessagingInterface::kPreLoadGame:
+    {
+        Logwatch::watcher.setGameReady(false);
+        break;
+    }
+    case SKSE::MessagingInterface::kPostLoadGame:
+    {
+        logger::info("Game load complete; enabling notifications");
+        Logwatch::watcher.setGameReady(true);
+        break;
+    }
+    case SKSE::MessagingInterface::kNewGame:
+    {
+        logger::info("New game started, enabling notifications");
+        Logwatch::watcher.setGameReady(true);
+        break;
     }
     default:
         break;

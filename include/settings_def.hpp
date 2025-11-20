@@ -10,6 +10,11 @@ namespace Logwatch {
     S(watchPapyrus,             true) \
     S(autoBoostOnBacklog,       true) \
     S(persistPins,              true) \
+    /* Notifications */               \
+    S(notificationsEnabled,     true) \
+    S(periodicSummaryEnabled,   true) \
+    S(pinnedAlertsEnabled,      true) \
+
 
 #define FOREACH_SIZE_SETTING(S) \
     S(cacheCap,					1000) \
@@ -20,6 +25,15 @@ namespace Logwatch {
     S(papyrusMaxLineKB,         256) \
     S(backlogBoostThresholdMB,	8) \
     S(maxBoostCapMB,            10) \
+    /* Notifications */               \
+    S(HUDDelaySec,              2) \
+    S(periodicIntervalSec,      300) \
+    S(periodicMaxMods,          5) \
+    S(pinnedAlertCooldownSec,   60) \
+    S(pinnedMinNewIssues,       1) \
+    /* (levels: 0=errors, 1=errors + warnings, 2=errors + warnings + fails) */ \
+    S(periodicMinLevel,          1)       \
+    S(pinnedMinLevel,            1)       \
 
 #define FOREACH_FLT_SETTING(S) \
     S(backlogBoostFactor,       2.0f) \

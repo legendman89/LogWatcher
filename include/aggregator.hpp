@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include <shared_mutex>
-#include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
 
@@ -15,16 +14,10 @@ namespace Logwatch {
 
 	private:
 
-		std::unordered_map<std::string, ModStats> mods, backup;
+		Snapshot mods, backup;
 		std::unordered_set<std::string> pinned;
 		mutable std::shared_mutex _mutex_;
 		std::atomic_size_t cap;
-
-		inline std::string keyOf(const std::string& path) {
-			std::filesystem::path p(path);
-			auto stem = p.stem().string();
-			return stem.empty() ? path : stem;
-		}
 
 		inline std::string keyOfFast(const std::string_view& path) {
 			const auto sep = path.find_last_of("/\\");
@@ -82,9 +75,9 @@ namespace Logwatch {
 			pinned.clear();
 		}
 
-		inline std::unordered_map<std::string, ModStats> snapshot() const {
+		inline Snapshot snapshot() const {
 			std::shared_lock lock(_mutex_);
-			std::unordered_map<std::string, ModStats> out;
+			Snapshot out;
 			out.reserve(mods.size()); // avoids rehashing
 			for (const auto& m : mods) out.emplace(m.first, m.second);
 			return out;

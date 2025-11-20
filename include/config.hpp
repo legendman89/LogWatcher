@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono>
 #include "settings_def.hpp"
+#include "logger.hpp"
 
 namespace Logwatch {
 
@@ -63,6 +64,15 @@ namespace Logwatch {
             FOREACH_SIZE_SETTING(SETTING2CONFIG);
             FOREACH_FLT_SETTING(SETTING2CONFIG);
 			pollInterval = std::chrono::milliseconds{ pollIntervalMs };
+        }
+
+        void print() const {
+            #define FLTSETTING2PRINT(S, D) logger::info("  {:30s} : {:.2f}", #S, S);
+            #define SIZESETTING2PRINT(S, D) logger::info("  {:30s} : {}", #S, S);
+            #define BOOLSETTING2PRINT(S, D) logger::info("  {:30s} : {}", #S, S ? "true" : "false");
+            FOREACH_BOOL_SETTING(BOOLSETTING2PRINT);
+            FOREACH_SIZE_SETTING(SIZESETTING2PRINT);
+            FOREACH_FLT_SETTING(FLTSETTING2PRINT);
         }
     };
 

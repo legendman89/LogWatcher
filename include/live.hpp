@@ -12,10 +12,6 @@
 namespace Live {
 
     class LogWatcherUI {
-    public:
-
-        static void RenderWatch();
-        static void RenderSettings();
 
     private:
 
@@ -27,6 +23,13 @@ namespace Live {
             bool&                   sortAsc);
 
         static void RenderDetailsWindow();
+
+    public:
+
+        static void RenderWatch();
+        static void RenderMailbox();
+        static void RenderSettings();
+
     };
 
     void Register();

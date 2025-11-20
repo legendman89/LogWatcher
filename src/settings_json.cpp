@@ -5,7 +5,19 @@
 
 Logwatch::SettingPersister Logwatch::settingsPersister{};
 
-bool Logwatch::SettingPersister::saveState() {
+void Logwatch::SettingPersister::saveStateAsync() {
+	std::jthread([this]() mutable {
+			saveState();
+		}
+	).detach();
+}
+
+void Logwatch::SettingPersister::saveState() {
+	std::lock_guard lock(_mutex_);
+
+	const auto path = settingsPath();
+	const auto tmp = path + ".tmp";
+
 	try {
 		const auto& s = Settings();
 
@@ -14,7 +26,7 @@ bool Logwatch::SettingPersister::saveState() {
 
 		if (s == oldSettings && pinsHash == oldPinsHash) {
 			logger::info("Settings and Pins unchanged; skipping saveState");
-			return true;
+			return;
 		}
 
 		json root;
@@ -26,10 +38,7 @@ bool Logwatch::SettingPersister::saveState() {
 			root["pins"] = pins;
 		}
 
-		const auto path = settingsPath();
 		fs::create_directories(fs::path(path).parent_path());
-
-		const auto tmp = path + ".tmp";
 		{
 			std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
 			out << root.dump(2);
@@ -45,11 +54,11 @@ bool Logwatch::SettingPersister::saveState() {
 		oldPinsHash = pinsHash;
 
 		logger::info("Saved settings and pins to {}", path);
-		return true;
 	}
 	catch (const std::exception& e) {
+		std::error_code ec;
+		fs::remove(tmp, ec);
 		logger::error("saveState failed: {}", e.what());
-		return false;
 	}
 }
 
@@ -65,7 +74,7 @@ bool Logwatch::SettingPersister::loadState() {
 		json root = json::parse(in);
 
 		int ver = root.value("version", 1);
-		(void)ver; // unsed for now (prevents the annoying compiler warnings too)
+		(void)ver; // (prevents the annoying compiler warnings for now)
 
 		auto& s = Settings();
 		if (root.contains("settings")) from_json_settings(root["settings"], s);

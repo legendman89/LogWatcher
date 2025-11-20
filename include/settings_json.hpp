@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
+#include <thread>
+#include <mutex>
 #include "settings.hpp"
 
 namespace fs = std::filesystem;
@@ -11,6 +13,8 @@ using json = nlohmann::json;
 namespace Logwatch {
 
 	class SettingPersister {
+
+		std::mutex _mutex_;
 
 		LogWatcherSettings oldSettings{ };
 		size_t oldPinsHash{ 0 };
@@ -60,7 +64,9 @@ namespace Logwatch {
 			FOREACH_FLT_SETTING(SETTING2GETTER)
 		}
 
-		bool saveState();
+		void saveState();
+
+		void saveStateAsync();
 
 		bool loadState();
 
