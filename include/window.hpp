@@ -21,7 +21,7 @@ namespace Live {
         bool            showAll = false;
     };
 
-    inline DetailsState& Details() {
+    inline DetailsState& GetDetails() {
         static DetailsState s;
         return s;
     }

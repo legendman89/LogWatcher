@@ -16,7 +16,6 @@ namespace Logwatch {
         int others = 0;
 
         struct Record {
-
             std::string level;
             std::string file;
             std::string text;

@@ -15,17 +15,17 @@ void Logwatch::SettingPersister::saveStateAsync() {
 void Logwatch::SettingPersister::saveState() {
 	std::lock_guard lock(_mutex_);
 
-	const auto path = settingsPath();
+	const auto path = GetSettingsPath();
 	const auto tmp = path + ".tmp";
 
 	try {
-		const auto& s = Settings();
+		const auto& s = GetSettings();
 
 		const auto pins = aggr.snapshotPins();
 		const size_t pinsHash = hashPins(pins);
 
 		if (s == oldSettings && pinsHash == oldPinsHash) {
-			logger::info("Settings and Pins unchanged; skipping saveState");
+			logger::info("GetSettings and Pins unchanged; skipping saveState");
 			return;
 		}
 
@@ -64,7 +64,7 @@ void Logwatch::SettingPersister::saveState() {
 
 bool Logwatch::SettingPersister::loadState() {
 	try {
-		const auto path = settingsPath();
+		const auto path = GetSettingsPath();
 		if (!fs::exists(path)) { 
 			logger::info("No config at {}; using defaults", path); 
 			return false;
@@ -76,7 +76,7 @@ bool Logwatch::SettingPersister::loadState() {
 		int ver = root.value("version", 1);
 		(void)ver; // (prevents the annoying compiler warnings for now)
 
-		auto& s = Settings();
+		auto& s = GetSettings();
 		if (root.contains("settings")) from_json_settings(root["settings"], s);
 
 		oldSettings = s;

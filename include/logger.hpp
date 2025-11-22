@@ -5,7 +5,7 @@
 
 namespace logger = SKSE::log;
 
-inline void SetupLog(const spdlog::level::level_enum& user_level) {
+inline void setupLog(const spdlog::level::level_enum& user_level) {
     auto logsFolder = SKSE::log::log_directory();
     if (!logsFolder) SKSE::stl::report_and_fail("SKSE log directory not provided, logs disabled.");
     auto pluginName = SKSE::PluginDeclaration::GetSingleton()->GetName();

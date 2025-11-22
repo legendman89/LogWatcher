@@ -58,7 +58,7 @@ namespace Logwatch {
             patterns.emplace_back("other", std::regex(R"(.+)", std::regex::ECMAScript));
         }
 
-        void LoadFromSettings(const LogWatcherSettings& st) {
+        void loadFromSettings(const LogWatcherSettings& st) {
             #define SETTING2CONFIG(S, D) S = st.S;
             FOREACH_BOOL_SETTING(SETTING2CONFIG);
             FOREACH_SIZE_SETTING(SETTING2CONFIG);

@@ -5,10 +5,10 @@
 #include "settings_json.hpp"
 #include "restart.hpp"
 
-void Logwatch::LoadDefaults(const LogWatcherSettings& factory) {
-	auto& st = Settings();
+void Logwatch::loadDefaults(const LogWatcherSettings& factory) {
+	auto& st = GetSettings();
     st = factory;
-	logger::info("Settings reset to defaults");
+	logger::info("GetSettings reset to defaults");
 }
 
 // Implement my restart rules
@@ -18,8 +18,8 @@ bool Logwatch::restartRequired(const LogWatcherSettings& curr, const Config& pre
 	return false;
 }
 
-void Logwatch::ApplyNow() {
-    auto& st = Settings();
+void Logwatch::applyNow() {
+    auto& st = GetSettings();
     auto& config = watcher.configurator();
 	const auto prev_config = config; // copy for comparison
 

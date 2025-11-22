@@ -34,7 +34,7 @@ namespace Logwatch {
 
 	public:
 
-		inline std::string settingsPath() {
+		inline std::string GetSettingsPath() {
 			const auto root = std::filesystem::path(REL::Module::get().filename()).parent_path();
 			return (root / "Data" / "SKSE" / "Plugins" / PRODUCT_NAME / PRODUCT_NAME ".json").string();
 		}

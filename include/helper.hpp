@@ -45,7 +45,7 @@ namespace Live {
         return std::string(buf);
     }
 
-    inline std::string sinceWhen(const std::chrono::system_clock::time_point& when) {
+    inline std::string SinceWhen(const std::chrono::system_clock::time_point& when) {
         auto now = std::chrono::system_clock::now();
         auto diff = duration_cast<std::chrono::seconds>(now - when).count();
 
@@ -70,20 +70,20 @@ namespace Live {
         return std::to_string(days) + (days == 1 ? " day ago" : " days ago");
     }
 
-    inline void solidBackground(const ImGuiCol& bgType) {
+    inline void SolidBackground(const ImGuiCol& bgType) {
         auto bg = ImGui::GetStyleColorVec4(bgType);
         ImVec4 newBg = *bg;
         newBg.w = 1.0f; // force opaque
         ImGui::PushStyleColor(bgType, newBg);
     }
 
-    inline void adjustBorder(int& pushes) {
+    inline void AdjustBorder(int& pushes) {
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 2.0f);  pushes++;
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8)); pushes++;
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2)); pushes++;
     }
 
-    inline void noButtonBorder(const bool& push) {
+    inline void NoButtonBorder(const bool& push) {
         if (push) {
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
@@ -131,12 +131,6 @@ namespace Live {
 		ImGui::PopStyleVar(2);
 		return clicked && enabled;
 	}
-
-    inline void TextUnformattedU8(const char8_t* s) {
-        const auto len = std::char_traits<char8_t>::length(s);
-        const char* b = reinterpret_cast<const char*>(s);
-        ImGui::TextUnformatted(b, b + len);
-    }
 
 }
 

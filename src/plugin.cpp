@@ -17,10 +17,10 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     case SKSE::MessagingInterface::kPostLoad:
     {
         logger::info("SKSE finished loading; loading watcher settings");
-		auto& s = Logwatch::Settings(); // load defaults first
+		auto& s = Logwatch::GetSettings(); // load defaults first
 		Logwatch::settingsPersister.loadState(); // then load persisted settings
         auto& config = Logwatch::watcher.configurator();
-        config.LoadFromSettings(s);
+        config.loadFromSettings(s);
         Logwatch::aggr.setCapacity(config.cacheCap);
         Logwatch::watcher.checkRunState();
         Logwatch::watcher.addLogDirectories();
@@ -57,7 +57,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     SKSE::Init(skse);
-    SetupLog(spdlog::level::info);
+    setupLog(spdlog::level::info);
     logger::info("Log Watcher Plugin is Loaded");
     SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
     Live::Register();

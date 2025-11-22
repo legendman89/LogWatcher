@@ -2,14 +2,14 @@
 #include "loading.hpp"
 #include "watcher.hpp"
 
-void Live::PlaceOffset(const float& offset) {
+void Live::placeOffset(const float& offset) {
     const float availx = GetAvail().x;
     if (availx > offset) {
         ImGui::SameLine(GetWinMax().x - offset);
 	}
 }
 
-void Live::PlaceTopRight(const float& reserve) {
+void Live::placeTopRight(const float& reserve) {
     const float availx = GetAvail().x;
     const auto style = ImGui::GetStyle();
     if (style && availx > reserve) {
@@ -21,7 +21,7 @@ void Live::PlaceTopRight(const float& reserve) {
 	}
 }
 
-void Live::RenderBusy(const std::string& msg, const float& elapsed, const int& maxDots)
+void Live::renderBusy(const std::string& msg, const float& elapsed, const int& maxDots)
 {
     float alpha = elapsed < 0.f ? 1.f : std::min(1.f, elapsed / BusyTimings::FADE_IN);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
@@ -42,7 +42,7 @@ void Live::RenderBusy(const std::string& msg, const float& elapsed, const int& m
     ImGui::PopStyleVar();
 }
 
-bool Live::RenderDone(BusyState& state, const float& elapsed) {
+bool Live::renderDone(BusyState& state, const float& elapsed) {
     float a = 1.0f;
     if (elapsed > BusyTimings::DONE_HOLD)
         a = 1.0f - CLAMP_ALPHA((elapsed - BusyTimings::DONE_HOLD) / BusyTimings::FADE_OUT);
@@ -60,7 +60,7 @@ bool Live::RenderDone(BusyState& state, const float& elapsed) {
 	return false;
 }
 
-void Live::RenderDoneWithLabel(BusyState& state, const std::string& msg, const float& elapsed) {
+void Live::renderDoneWithLabel(BusyState& state, const std::string& msg, const float& elapsed) {
     float a = 1.0f;
     if (elapsed > BusyTimings::DONE_HOLD)
         a = 1.0f - CLAMP_ALPHA((elapsed - BusyTimings::DONE_HOLD) / BusyTimings::FADE_OUT);
@@ -86,7 +86,7 @@ void Live::RenderDoneWithLabel(BusyState& state, const std::string& msg, const f
 }
 
 
-void Live::RenderLoadingOverlay(const std::string& msg, const float& offset, Positioner pos) {
+void Live::renderLoadingOverlay(const std::string& msg, const float& offset, Positioner pos) {
 
     if (Logwatch::watcher.getRunState() == Logwatch::RunState::Stopped)
 		return;
@@ -113,16 +113,16 @@ void Live::RenderLoadingOverlay(const std::string& msg, const float& offset, Pos
         pos(offset);
     }
     else {
-        PlaceTopRight(BusyTimings::RESERVE);
+        placeTopRight(BusyTimings::RESERVE);
 	}
 
     const float elapsed = (float)(now - ctx.t0);
 	switch (ctx.state) {
 		case BusyState::Working:
-			RenderBusy(msg, elapsed);
+			renderBusy(msg, elapsed);
 			break;
 		case BusyState::Done:
-            RenderDoneWithLabel(ctx.state, msg, elapsed);
+            renderDoneWithLabel(ctx.state, msg, elapsed);
 			break;
 		default:
 			break;

@@ -49,12 +49,12 @@ namespace Live {
         bool pinned{};
     };
 
-    inline PanelState& Panel() {
+    inline PanelState& GetPanel() {
         static PanelState s;
         return s;
     }
 
-    inline void pinStyle(TableRow& r) {
+    inline void PinStyle(TableRow& r) {
         constexpr unsigned STAR = 0xF005;
         static const std::string starText = FontAwesome::UnicodeToUtf8(STAR);
         if (r.pinned) {
@@ -65,9 +65,9 @@ namespace Live {
             FontAwesome::PushRegular();
             ImGui::PushStyleColor(ImGuiCol_Text, Colors::PinMuted);
 		}
-        noButtonBorder(true);
+        NoButtonBorder(true);
         bool clicked = ImGui::SmallButton((starText + "##pin").c_str());
-        noButtonBorder(false);
+        NoButtonBorder(false);
         ImGui::PopStyleColor();
         FontAwesome::Pop();
         if (clicked) {

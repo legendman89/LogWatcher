@@ -31,7 +31,7 @@ void Live::takeSnapshot(std::vector<TableRow>& rows) {
 void Live::LogWatcherUI::RenderSettings()
 {
 	const auto rs = Logwatch::watcher.getRunState();
-	auto& st = Logwatch::Settings();
+	auto& st = Logwatch::GetSettings();
 
 	static bool settings_init = false;
 	static Logwatch::LogWatcherSettings prev_settings{};
@@ -39,8 +39,8 @@ void Live::LogWatcherUI::RenderSettings()
 	if (!settings_init) { prev_settings = st; settings_init = true; }
 
 	int pushes = 0;
-	adjustBorder(pushes);
-	solidBackground(ImGuiCol_ChildBg);
+	AdjustBorder(pushes);
+	SolidBackground(ImGuiCol_ChildBg);
 	if (ImGui::BeginChild("lw_settings", ImVec2(0, 0), ImGuiChildFlags_Border)) {
 
 		ImGui::Dummy(ImVec2(0, 4));
@@ -237,13 +237,13 @@ void Live::LogWatcherUI::RenderSettings()
 
 		if (Live::CTAButton("Save and Apply", canApply)) {
 			busyState = BusyState::Working;
-			Logwatch::ApplyNow();
+			Logwatch::applyNow();
 		}
 		ImGui::SameLine(0.0f, 6.0f);
 		if (Live::CTAButton("Load Defaults", canDefaults)) {
 			busyState = BusyState::Working;
-			Logwatch::LoadDefaults(factory);
-			Logwatch::ApplyNow();
+			Logwatch::loadDefaults(factory);
+			Logwatch::applyNow();
 		}
 
 		// status widget on same line
@@ -276,11 +276,11 @@ void Live::LogWatcherUI::RenderSettings()
 		const float elapsed = float(now - ui_ctx.t0);
 		switch (ui_ctx.state) {
 			case BusyState::Working: {
-				Live::RenderBusy("Applying", elapsed);
+				Live::renderBusy("Applying", elapsed);
 				break;
 			}
 			case BusyState::Done: {
-				const bool faded = Live::RenderDone(ui_ctx.state, elapsed);
+				const bool faded = Live::renderDone(ui_ctx.state, elapsed);
 				if (faded) busyState = BusyState::Idle;
 				break;
 			}
@@ -297,17 +297,17 @@ void Live::LogWatcherUI::RenderSettings()
 
 void Live::LogWatcherUI::RenderWatch() {
 
-	auto& ps = Panel();
+	auto& ps = GetPanel();
 
 	const ImGuiChildFlags childFlags = ImGuiChildFlags_Border;
 	int pushes = 0;
 
-	adjustBorder(pushes);
+	AdjustBorder(pushes);
 
 	// whole panel lives inside section
 	bool pushedPanelBg = false;
 	if (ps.opaque) {
-		solidBackground(ImGuiCol_ChildBg);
+		SolidBackground(ImGuiCol_ChildBg);
 		pushedPanelBg = true;
 	}
 
@@ -393,12 +393,12 @@ void Live::LogWatcherUI::DrawTable(
 }
 
 void Live::LogWatcherUI::RenderDetailsWindow() {
-	auto& ds = Details();
+	auto& ds = GetDetails();
 	if (!ds.open) return;
 
 	bool pushedWinBg = false;
 	if (ds.opaque) {
-		solidBackground(ImGuiCol_WindowBg);
+		SolidBackground(ImGuiCol_WindowBg);
 		pushedWinBg = true;
 	}
 
@@ -553,7 +553,7 @@ void Live::LogWatcherUI::RenderMailbox()
 
 			// When
 			ImGui::TableNextColumn();
-			auto when = sinceWhen(e.when);
+			auto when = SinceWhen(e.when);
 			ImGui::TextUnformatted(when.c_str());
 		}
 
@@ -650,5 +650,5 @@ void Live::Register() {
 	SKSEMenuFramework::SetSection("Log Watcher");
 	SKSEMenuFramework::AddSectionItem("Watch", LogWatcherUI::RenderWatch);
 	SKSEMenuFramework::AddSectionItem("Mailbox", LogWatcherUI::RenderMailbox);
-	SKSEMenuFramework::AddSectionItem("Settings", LogWatcherUI::RenderSettings);
+	SKSEMenuFramework::AddSectionItem("GetSettings", LogWatcherUI::RenderSettings);
 }

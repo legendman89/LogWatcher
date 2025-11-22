@@ -5,7 +5,7 @@
 
 void Live::multiSelectCombo(DetailsState& ds) {
 	std::string preview = LevelsPreview(ds);
-	solidBackground(ImGuiCol_PopupBg);
+	SolidBackground(ImGuiCol_PopupBg);
 	if (ImGui::BeginCombo("Levels", preview.c_str(), ImGuiComboFlags_WidthFitPreview)) {
 		if (ImGui::Checkbox("Error", &ds.showError)) {}
 		if (ImGui::Checkbox("Warning", &ds.showWarning)) {}

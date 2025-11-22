@@ -21,7 +21,7 @@ void Live::addTableControls(PanelState& ps) {
 	ImGui::SameLine();
 	ImGui::Checkbox("Show pinned only", &ps.showPinnedOnly);
 
-	RenderLoadingOverlay("Warming up", BusyTimings::RESERVE);
+	renderLoadingOverlay("Warming up", BusyTimings::RESERVE);
 
 	ImGui::Dummy(ImVec2(0, 6));
 }
@@ -77,7 +77,7 @@ void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vec
 		ImGui::PopID();
 		if (clickedMod) {
 			selected = idxInView;
-			auto& ds = Details();
+			auto& ds = GetDetails();
 			ds.mod = r.mod;
 			ds.open = true;
 		}
@@ -114,7 +114,7 @@ void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vec
 		// Pinned
 		ImGui::TableNextColumn();
 		ImGui::PushID(r.mod.c_str());
-		pinStyle(r);
+		PinStyle(r);
 		ImGui::PopID();
 
 	}

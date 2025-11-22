@@ -29,11 +29,11 @@ namespace Live {
 
     using Positioner = std::function<void(const float& reserve)>;
 
-    void PlaceTopRight(const float& reserve);
-    void PlaceOffset(const float& offset);
-    bool RenderDone(BusyState& state, const float& elapsed);
-    void RenderDoneWithLabel(BusyState& state, const std::string& msg, const float& elapsed);
-    void RenderBusy(const std::string& msg, const float& elapsed, const int& maxDots = 3);
-    void RenderLoadingOverlay(const std::string& msg, const float& offset, Positioner pos = {});
+    void placeTopRight(const float& reserve);
+    void placeOffset(const float& offset);
+    bool renderDone(BusyState& state, const float& elapsed);
+    void renderDoneWithLabel(BusyState& state, const std::string& msg, const float& elapsed);
+    void renderBusy(const std::string& msg, const float& elapsed, const int& maxDots = 3);
+    void renderLoadingOverlay(const std::string& msg, const float& offset, Positioner pos = {});
 
 }

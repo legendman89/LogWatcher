@@ -15,11 +15,11 @@ namespace Logwatch {
 
     inline bool operator!=(const LogWatcherSettings& a, const LogWatcherSettings& b) { return !(a == b); }
 
-    inline LogWatcherSettings& Settings() { static LogWatcherSettings st; return st; }
+    inline LogWatcherSettings& GetSettings() { static LogWatcherSettings st; return st; }
 
-    void ApplyNow();
+    void applyNow();
 
-    void LoadDefaults(const LogWatcherSettings& factory);
+    void loadDefaults(const LogWatcherSettings& factory);
 
 	bool restartRequired(const LogWatcherSettings& curr, const Config& prev);
 

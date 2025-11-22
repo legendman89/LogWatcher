@@ -45,7 +45,7 @@ namespace Utils {
         return false;
     }
 
-    inline bool isDecorChar(char c) {
+    inline bool isDecorChar(const char& c) {
         switch (c) {
             case '*': case '>': case '<': case '-': case '=': case '_':
             case '~': case '#': case '.': case '!': case '/': case '\\':
@@ -232,7 +232,7 @@ namespace Utils {
         return s;
     }
 
-    inline std::string nukeLogLine(std::string s, bool removeCppStuff = true) {
+    inline std::string nukeLogLine(std::string s, const bool& removeCppStuff = true) {
         if (removeCppStuff) {
             stripLeadingCppPath(s);
             stripBracketedCpp(s);
