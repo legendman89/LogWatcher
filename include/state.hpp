@@ -16,7 +16,7 @@ namespace Logwatch {
         std::string file;           // Full path of the log file
         std::string line;           // The matched line
         std::string keyword;        // Which keyword/regex matched
-        std::string level;          // error/warning/fail/other
+        std::string level;          // error (inc. critical)/warning/fail/other
         uint64_t lineNo;            // 1-based line number
         std::chrono::system_clock::time_point when; // timestamp 
     };

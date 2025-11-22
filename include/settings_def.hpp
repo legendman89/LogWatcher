@@ -4,6 +4,10 @@
 
 namespace Logwatch {
 
+    /* I call this code generation by macro expansion,
+       it saves me tons of duplicated code, and keep
+       my code neat too */
+
 #define FOREACH_BOOL_SETTING(S) \
     S(pauseWatcher,             false) \
     S(deepScan,                 false) \

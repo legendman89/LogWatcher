@@ -26,8 +26,6 @@ namespace Live {
 
     enum class Column : int { FOREACH_COLUMN(COL2ENUM) Count };
 
-    static const char* COLSTR[] = { FOREACH_COLUMN(COL2STR) };
-
     struct PanelState {
         ImGuiTextFilter filter;
         int             recentLimit = 50;
