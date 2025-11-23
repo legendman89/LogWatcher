@@ -25,7 +25,7 @@ void Logwatch::SettingPersister::saveState() {
 		const size_t pinsHash = hashPins(pins);
 
 		if (s == oldSettings && pinsHash == oldPinsHash) {
-			logger::info("GetSettings and Pins unchanged; skipping saveState");
+			logger::info("Settings and Pins unchanged; skipping saveState");
 			return;
 		}
 

@@ -4,6 +4,8 @@
 #include "SKSEMenuFramework.h"
 #include "color.hpp"
 
+using namespace ImGuiMCP;
+
 namespace Live {
 
     inline ImVec2 GetAvail() {

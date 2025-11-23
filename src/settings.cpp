@@ -8,7 +8,7 @@
 void Logwatch::loadDefaults(const LogWatcherSettings& factory) {
 	auto& st = GetSettings();
     st = factory;
-	logger::info("GetSettings reset to defaults");
+	logger::info("Settings reset to defaults");
 }
 
 // Implement my restart rules

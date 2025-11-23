@@ -2,6 +2,8 @@
 
 #include "SKSEMenuFramework.h"
 
+using namespace ImGuiMCP;
+
 namespace Colors {
 
     // Neutrals

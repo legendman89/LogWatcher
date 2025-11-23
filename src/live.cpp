@@ -650,5 +650,5 @@ void Live::Register() {
 	SKSEMenuFramework::SetSection("Log Watcher");
 	SKSEMenuFramework::AddSectionItem("Watch", LogWatcherUI::RenderWatch);
 	SKSEMenuFramework::AddSectionItem("Mailbox", LogWatcherUI::RenderMailbox);
-	SKSEMenuFramework::AddSectionItem("GetSettings", LogWatcherUI::RenderSettings);
+	SKSEMenuFramework::AddSectionItem("Settings", LogWatcherUI::RenderSettings);
 }

@@ -4,6 +4,8 @@
 #include <vector>
 #include "SKSEMenuFramework.h"
 
+using namespace ImGuiMCP;
+
 namespace Live {
 
     struct DetailsState {
