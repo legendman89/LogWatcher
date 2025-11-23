@@ -5,8 +5,8 @@
 namespace Logwatch {
 
     /* I call this code generation by macro expansion,
-       it saves me tons of duplicated code, and keep
-       my code neat too */
+       it saves me propagating every option thru the code muself, 
+       and of course eliminates any chance of mistakes.*/
 
 #define FOREACH_BOOL_SETTING(S) \
     S(pauseWatcher,             false) \
