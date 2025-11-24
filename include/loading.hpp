@@ -8,8 +8,7 @@
 
 namespace Live {
 
-    enum class BusyState { Idle, Working, Done };
-
+    // Tweaked based on my desired outlook.
     struct BusyTimings {
         static constexpr float RESERVE    = 160.0f;
         static constexpr float FADE_IN    = 0.5f;
@@ -17,6 +16,9 @@ namespace Live {
         static constexpr float FADE_OUT   = 0.9f;
 		static constexpr float CYCLE      = 0.8f;
 	};
+
+    // Simple automaton for the applying settings state.
+    enum class BusyState { Idle, Working, Done };
 
     struct BusyContext {
         BusyState   state{ BusyState::Idle };

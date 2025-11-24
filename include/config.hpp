@@ -21,7 +21,7 @@ namespace Logwatch {
         std::regex excludeFileRegex;
         std::vector<std::pair<std::string, std::regex>> patterns;
 
-        // Manual conversion
+        // Manual conversion (must be ouside code generation above)
         std::chrono::milliseconds pollInterval{ std::chrono::milliseconds{pollIntervalMs} };
 
         Config() try

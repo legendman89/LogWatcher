@@ -37,6 +37,8 @@ namespace Live {
         bool            opaque = false;
     };
 
+    // TODO: not sure if we should keep this separate from statistics?
+    // because we have the extra field 'recent'.
     struct TableRow {
         std::string mod;
         int errors{};

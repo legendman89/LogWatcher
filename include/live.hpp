@@ -11,6 +11,8 @@
 
 namespace Live {
 
+    // UI class; keep'em static to register immediately.
+
     class LogWatcherUI {
 
     private:

@@ -47,6 +47,7 @@ namespace Live {
         return std::string(buf);
     }
 
+    // TODO: make this every x seconds or rather x frames.
     inline std::string SinceWhen(const std::chrono::system_clock::time_point& when) {
         auto now = std::chrono::system_clock::now();
         auto diff = duration_cast<std::chrono::seconds>(now - when).count();
@@ -99,6 +100,8 @@ namespace Live {
         }
     }
 
+    // Fancy CTA buttons for settings.
+    // TODO: might need a colorful version for the pause/resume button.
 	inline bool CTAButton(const char* label, const bool& enabled) {
 
 		// On state colors

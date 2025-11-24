@@ -20,6 +20,7 @@ namespace Logwatch {
 		size_t oldPinsHash{ 0 };
 
 		// Source: Fowler–Noll–Vo hash function (FNV-1a), 64-bit variant
+		// Implemented for one purpose, ignored already saved/loaded pinned mods.
 		inline size_t hashPins(const std::unordered_set<std::string>& pins) {
 			constexpr uint64_t FNV_OFFSET = 1469598103934665603ull;
 			constexpr uint64_t FNV_PRIME = 1099511628211ull;

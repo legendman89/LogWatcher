@@ -69,7 +69,7 @@ void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::p
     }
 }
 
-void Logwatch::LogWatcher::workerLoop(const std::stop_token& stop) {
+void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
     while (!stop.stop_requested()) {
 
@@ -299,6 +299,7 @@ void Logwatch::LogWatcher::parseBufferAndEmit(FileInfo& fi, std::string&& chunk,
 
         const size_t len = end - start;
         if (len <= lineCap) {
+            // This must be string_view to avoid allocating enw memory for chunk.
             std::string_view sv(&chunk[start], len);
             auto line = Utils::trimLine(sv);
             if (!line.empty()) {
@@ -320,7 +321,7 @@ void Logwatch::LogWatcher::parseBufferAndEmit(FileInfo& fi, std::string&& chunk,
     }
 }
 
-void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, std::string_view line, uint64_t lineNo) {
+void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, const std::string_view& line, const uint64_t& lineNo) {
     for (const auto& [name, rx] : config.patterns) {
         if (std::regex_search(line.begin(), line.end(), rx)) {
             if (callback) {

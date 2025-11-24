@@ -14,11 +14,17 @@ namespace Logwatch {
 
 	private:
 
+		// For bookkeeping; backup is needed when we switch to deep scan.
 		Snapshot mods, backup;
 		std::unordered_set<std::string> pinned;
+
+		// To remind myself, I added mutable to allow unlocking in constant functions.
 		mutable std::shared_mutex _mutex_;
+
+		// Cache capacity.
 		std::atomic_size_t cap;
 
+		// This version is faster than the standard stem.
 		inline std::string keyOfFast(const std::string_view& path) {
 			const auto sep = path.find_last_of("/\\");
 			auto fname = (sep == std::string_view::npos) ? path : path.substr(sep + 1);
@@ -105,6 +111,7 @@ namespace Logwatch {
 			logger::info("Aggregator capacity set to {}", n);
 		}
 
+		// TODO: do we need to nudge threads here?
 		inline size_t capacity() const {
 			return cap.load(std::memory_order_relaxed);
 		}

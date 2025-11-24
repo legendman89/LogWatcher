@@ -55,7 +55,7 @@ namespace Utils {
         }
     }
 
-    inline bool hasCppExtAt(const std::string& s, size_t pos, size_t* extEndOut = nullptr) {
+    inline bool hasCppExtAt(const std::string& s, const size_t& pos, size_t* extEndOut = nullptr) {
         if (pos == std::string::npos || pos + 1 >= s.size()) return false;
         size_t i = pos + 1;
         while (i < s.size() && isWordChar(s[i])) ++i;
@@ -66,7 +66,7 @@ namespace Utils {
         return isCppExt(ext);
     }
 
-    inline std::string replaceUsername(const std::string path, const std::string keyword = "HIDDEN") {
+    inline std::string replaceUsername(const std::string& path, const std::string& keyword = "HIDDEN") {
         const std::string users = "\\Users\\";
         const auto pos = path.find(users);
         if (pos == std::string::npos) {
@@ -191,7 +191,7 @@ namespace Utils {
         s.swap(out);
     }
 
-    inline std::string trimLine(std::string_view s) {
+    inline std::string trimLine(const std::string_view& s) {
         auto l = s.begin(), r = s.end();
         while (l != r && (*l == ' ' || *l == '\t' || *l == '\r' || *l == '\n')) ++l;
         while (r != l) {
@@ -266,6 +266,7 @@ namespace Utils {
         static const std::regex word_re("\\[\\s*[A-Za-z_]+\\s*\\]");
         static const std::regex num_re("\\[\\s*\\d+\\s*\\]");
 
+        // Order doesn't matter here.
         s = std::regex_replace(s, ts_iso_br, "");
         s = std::regex_replace(s, ts_iso_slash_br, "");
         s = std::regex_replace(s, ts_us_br, "");

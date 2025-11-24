@@ -7,6 +7,7 @@
 
 namespace Logwatch {
 
+    // TODO: move this to statistics to avoid maintaining duplicate code.
     struct Counts {
         uint64_t errors = 0;
         uint64_t warnings = 0;

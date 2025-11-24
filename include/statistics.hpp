@@ -10,6 +10,8 @@ namespace Logwatch {
     enum Level : uint8_t { kError = 1, kWarning = 2, kFail = 4, kOther = 8 };
 
     struct ModStats {
+
+        // TODO: this should be in Counts.
         int errors = 0;
         int warnings = 0;
         int fails = 0;

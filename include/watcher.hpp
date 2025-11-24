@@ -23,66 +23,79 @@
 
 namespace Logwatch {
 
+    // State for the pause/resume.
     enum class RunState { Running, AutoStopPending, Stopped };
 
+    // Matches a log line.
     void OnMatch(const Match& m);
 
+    // Papyrus or Generic?
     LogType classify(const std::filesystem::path& p);
 
+    // For the OnMatach or any other callable.
     using Callback = std::function<void(const Match&)>;
 
     class LogWatcher {
     private:
 
-        // Worker thread
+        // Watcher thread. Must be jthread, std::thread won't help for shit here.
+        // My first attempt was std::thread, and was going into limbo not able
+        // to figure out how to send stop signals.
         std::jthread worker;
 
-		// Run state for auto-stop button
+		// Run state for auto-stop button.
         std::atomic<RunState> runState{ RunState::Running };
         std::atomic<bool> firstPollDone{ false };
 
-		// Warming up overlay state
+		// Warming up overlay state.
         std::atomic<bool> warming_up{ true };
 
-        // For locks
+        // For locks. Mutable for the same reason as the aggregator.
         mutable std::mutex _mutex_;
 
         // Sleep/wakeup for the worker
         std::mutex                  _wake_mutex_;
+
+        // This is one reason why I needed jthread.
         std::condition_variable_any _wake_cv_;
 
         Config   config;
         Callback callback;
 
+        // Bookkeeping.
         std::vector<fs::path>                         roots;
         std::unordered_map<std::string, FileInfo>     files;
 
-        // For notifications
+        // Delay notifications until save is loaded.
         bool gameReady{};
 
-        // Periodic summary
+        // Periodic summary.
         Counts periodicLastTotals{};
         Clock::time_point periodicNextAt{ };
         bool periodicReady{ false };
         std::unordered_map<std::string, Counts> periodicLastPerMod;
         
-        // Pinned alerts
+        // Pinned alerts.
         std::unordered_map<std::string, PinnedSnapshot> pinnedState;
         MessageQueue messages;
 
-        // Mail
+        // Mail.
         MailBox mailbox;
 
-        // Worker body
-        void workerLoop(const std::stop_token& stop);
+        // Worker body.
+        void watcherLoop(const std::stop_token& stop);
 
         // Scan functions
         void scanOnce(const std::stop_token& stop);
         bool shouldInclude(const fs::path& file) const;
         void discoverFiles(std::vector<fs::path>& out, const fs::path& root, const std::stop_token& stop);
         void tailFile(FileInfo& fi, const std::stop_token& stop);
+
+        // TODO: make chunk constant.
         void parseBufferAndEmit(FileInfo& fi, std::string&& chunk, const std::stop_token& stop);
-        void emitIfMatch(const fs::path& file, std::string_view line, uint64_t lineNo);
+
+        // Line here has to be string_view to avoid reallocation.
+        void emitIfMatch(const fs::path& file, const std::string_view& line, const uint64_t& lineNo);
 
         // Notification functions
         void releaseNotifications();
@@ -166,7 +179,7 @@ namespace Logwatch {
             worker = std::jthread(
                 [this](const std::stop_token& st) { 
                     try {
-                        workerLoop(st);
+                        watcherLoop(st);
                     }
                     catch (const std::exception& e) {
                         logger::error("Unhandled exception in Watcher thread: {}", e.what());
