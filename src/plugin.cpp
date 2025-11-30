@@ -13,14 +13,17 @@
 #include "settings_json.hpp"
 
 static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
+
+    Logwatch::Config config{};
+
     switch (msg->type) {
     case SKSE::MessagingInterface::kPostLoad:
     {
-        logger::info("SKSE finished loading; loading watcher settings");
-		auto& s = Logwatch::GetSettings(); // load defaults first
+        logger::info("SKSE finished loading; initiating watcher");
+		auto& st = Logwatch::GetSettings(); // load defaults first
 		Logwatch::settingsPersister.loadState(); // then load persisted settings
-        auto& config = Logwatch::watcher.configurator();
-        config.loadFromSettings(s);
+        config = Logwatch::watcher.configurator();
+        config.loadFromSettings(st);
         Logwatch::aggr.setCapacity(config.cacheCap);
         Logwatch::watcher.checkRunState();
         Logwatch::watcher.addLogDirectories();
@@ -39,15 +42,11 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
         break;
     }
     case SKSE::MessagingInterface::kPostLoadGame:
-    {
-        logger::info("Game load complete; enabling notifications");
-        Logwatch::watcher.setGameReady(true);
-        break;
-    }
     case SKSE::MessagingInterface::kNewGame:
     {
-        logger::info("New game started, enabling notifications");
+        logger::info("Loading game detected, delaying notifications by {}", config.HUDPostLoadDelaySec);
         Logwatch::watcher.setGameReady(true);
+        Logwatch::watcher.setHUDStartDelay(config.HUDPostLoadDelaySec);
         break;
     }
     default:

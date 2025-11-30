@@ -3,6 +3,7 @@
 #include <string>
 #include "SKSEMenuFramework.h"
 #include "color.hpp"
+#include "statistics.hpp"
 
 using namespace ImGuiMCP;
 
@@ -25,6 +26,15 @@ namespace Live {
         if (lvl == "warning") return Colors::Warning;
         if (lvl == "fail") return Colors::Fail;
         return Colors::Other;
+    }
+
+    inline const ImVec4& LevelColor(const Logwatch::Level& lvl, const float& alpha) {
+        ImVec4 color = Colors::White;
+        if (lvl & Logwatch::Level::kError) color = Colors::Error;
+        if (lvl & Logwatch::Level::kWarning) color = Colors::Warning;
+        if (lvl & Logwatch::Level::kFail) color = Colors::Fail;
+        color.w = alpha;
+        return color;
     }
 
     inline void HelpMarker(const char* text) {
@@ -55,7 +65,7 @@ namespace Live {
         if (diff < 0)
             diff = 0;
 
-        if (diff < 3)
+        if (diff < 5)
             return "just now";
 
         if (diff < 60)

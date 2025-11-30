@@ -101,7 +101,6 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             const auto snap = aggr.snapshot();
             mayNotifyPinnedAlerts(snap);
             mayNorifyPeriodicAlerts(snap);
-            releaseNotifications();
         }
 
 		// Handle auto-stop after first poll

@@ -2,6 +2,7 @@
 #include "loading.hpp"
 #include "watcher.hpp"
 
+
 void Live::placeOffset(const float& offset) {
     const float availx = GetAvail().x;
     if (availx > offset) {
@@ -21,9 +22,8 @@ void Live::placeTopRight(const float& reserve) {
 	}
 }
 
-void Live::renderBusy(const std::string& msg, const float& elapsed, const int& maxDots)
-{
-    float alpha = elapsed < 0.f ? 1.f : std::min(1.f, elapsed / BusyTimings::FADE_IN);
+void Live::renderBusy(const std::string& msg, const float& elapsed, const int& maxDots) {
+    float alpha; incLoadingAlpha(alpha, elapsed);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
     const double t = ImGui::GetTime();
     const float phase = std::fmod(t, BusyTimings::CYCLE) / BusyTimings::CYCLE;
@@ -43,11 +43,10 @@ void Live::renderBusy(const std::string& msg, const float& elapsed, const int& m
 }
 
 bool Live::renderDone(BusyState& state, const float& elapsed) {
-    float a = 1.0f;
-    if (elapsed > BusyTimings::DONE_HOLD)
-        a = 1.0f - CLAMP_ALPHA((elapsed - BusyTimings::DONE_HOLD) / BusyTimings::FADE_OUT);
-    if (a <= 0.0f) { state = BusyState::Idle; }
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, a);
+    float alpha = 1.0;
+    decayLoadingAlpha(alpha, elapsed);
+    if (alpha <= 0.0f) { state = BusyState::Idle; }
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::SuccessGreen);
     FontAwesome::PushSolid();
     constexpr unsigned FA_CHECK = 0xF00C;
@@ -61,19 +60,14 @@ bool Live::renderDone(BusyState& state, const float& elapsed) {
 }
 
 void Live::renderDoneWithLabel(BusyState& state, const std::string& msg, const float& elapsed) {
-    float a = 1.0f;
-    if (elapsed > BusyTimings::DONE_HOLD)
-        a = 1.0f - CLAMP_ALPHA((elapsed - BusyTimings::DONE_HOLD) / BusyTimings::FADE_OUT);
-    if (a <= 0.0f) { state = BusyState::Idle; }
-
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, a);
-
+    float alpha = 1.0;
+    decayLoadingAlpha(alpha, elapsed);
+    if (alpha <= 0.0f) { state = BusyState::Idle; }
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::OFF_TXT);
     ImGui::TextUnformatted(msg.c_str());
     ImGui::PopStyleColor();
-
     ImGui::SameLine(0.0f, 6.0f);
-
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::SuccessGreen);
     FontAwesome::PushSolid();
     constexpr unsigned FA_CHECK = 0xF00C;
@@ -81,7 +75,6 @@ void Live::renderDoneWithLabel(BusyState& state, const std::string& msg, const f
     ImGui::TextUnformatted(s.c_str());
     FontAwesome::Pop();
     ImGui::PopStyleColor();
-
     ImGui::PopStyleVar();
 }
 

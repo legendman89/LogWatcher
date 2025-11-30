@@ -30,11 +30,15 @@ namespace Logwatch {
     S(backlogBoostThresholdMB,	8) \
     S(maxBoostCapMB,            10) \
     /* Notifications */               \
+    S(HUDPostLoadDelaySec,      6) \
     S(HUDDelaySec,              2) \
+    S(HUDStayOnSec,             4) \
+    S(HUDFadeOutSec,           1) \
+    S(HUDFontScale,             150) \
     S(periodicIntervalSec,      300) \
     S(periodicMaxMods,          5) \
     S(pinnedAlertCooldownSec,   60) \
-    S(pinnedMinNewIssues,       1) \
+    S(pinnedMinNewIssues,       2) \
     /* (levels: 0=errors, 1=errors + warnings, 2=errors + warnings + fails) */ \
     S(periodicMinLevel,          1)       \
     S(pinnedMinLevel,            1)       \

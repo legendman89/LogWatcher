@@ -67,7 +67,8 @@ namespace Logwatch {
         std::unordered_map<std::string, FileInfo>     files;
 
         // Delay notifications until save is loaded.
-        bool gameReady{};
+        std::atomic<bool> gameReady{ false };
+        std::atomic<Clock::time_point> hudStartDelay{ Clock::time_point{} };
 
         // Periodic summary.
         Counts periodicLastTotals{};
@@ -77,7 +78,7 @@ namespace Logwatch {
         
         // Pinned alerts.
         std::unordered_map<std::string, PinnedSnapshot> pinnedState;
-        MessageQueue messages;
+        std::deque<HUDMessage> hudMessages;
 
         // Mail.
         MailBox mailbox;
@@ -98,13 +99,13 @@ namespace Logwatch {
         void emitIfMatch(const fs::path& file, const std::string_view& line, const uint64_t& lineNo);
 
         // Notification functions
-        void releaseNotifications();
         void updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval);
         void mayNotifyPinnedAlerts(const Snapshot& snap);
         void mayNorifyPeriodicAlerts(const Snapshot& snap);
 
-        inline void scheduleNotification(const std::string& message) {
-            messages.q.push_back(message);
+        inline void scheduleNotification(HUDMessage&& m) {
+            std::lock_guard lock(_mutex_);
+            hudMessages.push_back(std::move(m));
         }
 
         inline void scheduleMail(MailEntry&& e) {
@@ -143,22 +144,38 @@ namespace Logwatch {
         LogWatcher() = default;
         ~LogWatcher() { stop(); }
 
-        void setGameReady(const bool& val) noexcept { gameReady = val; }
-        bool isGameReady() const noexcept { return gameReady; }
-
-        bool isWarmingUp() const noexcept { return warming_up.load(std::memory_order_relaxed); }
-
         void startLogWatcher();
 
-        // Directories
         void addLogDirectories();
+
         void addIfExists(const fs::path& p);
 
-        // Access/modify config
+        inline bool isHUDQueueEmpty() const noexcept { return hudMessages.empty(); }
+
+        inline void popHUDMessage(HUDMessage& hudMessage) {
+            hudMessage = std::move(hudMessages.front());
+            hudMessages.pop_front();
+        }
+
+        inline void setHUDStartDelay(const size_t& delay) noexcept { 
+            hudStartDelay.store(Clock::now() + std::chrono::seconds(delay), std::memory_order_relaxed);
+        }
+
+        inline bool isHUDTimeReady() const noexcept { 
+            const auto time = hudStartDelay.load(std::memory_order_relaxed);
+            if (!time.time_since_epoch().count()) return false;
+            return Clock::now() >= time;
+        }
+
+        inline void setGameReady(const bool& val) noexcept { gameReady.store(val, std::memory_order_relaxed); }
+
+        inline bool isGameReady() const noexcept { return gameReady.load(std::memory_order_relaxed); }
+
+        inline bool isWarmingUp() const noexcept { return warming_up.load(std::memory_order_relaxed); }
+
         inline Config& configurator() { return config; }
         inline const Config& configurator() const { return config; }
 
-        // Add a directory (recursive)
         inline void addDirectory(const fs::path& dir) {
             std::lock_guard lock(_mutex_);
             roots.push_back(dir);
@@ -169,7 +186,6 @@ namespace Logwatch {
             callback = std::move(cb);
         }
 
-        // Start/stop background thread
         inline void start() {
             if (worker.joinable()) {
                 logger::warn("Watcher thread is already running; start ignored");
@@ -218,7 +234,6 @@ namespace Logwatch {
             }
 		}
 
-        // Clear files map
         void clear() {
             std::lock_guard lock(_mutex_);
             files.clear();

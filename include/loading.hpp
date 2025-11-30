@@ -29,6 +29,16 @@ namespace Live {
         return std::clamp(x, 0.0f, 1.0f);
     }
 
+    inline void incLoadingAlpha(float& alpha, const float& elapsed) {
+        alpha = elapsed < 0.0f ? 1.0f : std::min(1.0f, elapsed / BusyTimings::FADE_IN);
+    }
+
+    inline void decayLoadingAlpha(float& alpha, const float& elapsed) {
+        alpha = 1.0f;
+        if (elapsed > BusyTimings::DONE_HOLD)
+            alpha = 1.0f - CLAMP_ALPHA((elapsed - BusyTimings::DONE_HOLD) / BusyTimings::FADE_OUT);
+    }
+
     using Positioner = std::function<void(const float& reserve)>;
 
     void placeTopRight(const float& reserve);

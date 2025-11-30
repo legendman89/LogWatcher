@@ -6,12 +6,13 @@
 #include "SKSEMenuFramework.h"
 #include "table.hpp"
 #include "window.hpp"
-#include "aggregator.hpp" 
 #include "watcher.hpp" 
+#include "aggregator.hpp"
+#include "notification.hpp"
 
 namespace Live {
 
-    // UI class; keep'em static to register immediately.
+    using Clock = std::chrono::steady_clock;
 
     class LogWatcherUI {
 
@@ -24,6 +25,13 @@ namespace Live {
             Column&                 sortColumn,
             bool&                   sortAsc);
 
+        static void DrawHUDText(
+            ImDrawList*                     drawList,
+            const ImVec2&                   screen,
+            const Logwatch::HUDMessage&     hud,
+            const float&                    alpha,
+            const float&                    scale);
+
         static void RenderDetailsWindow();
 
     public:
@@ -31,6 +39,7 @@ namespace Live {
         static void RenderWatch();
         static void RenderMailbox();
         static void RenderSettings();
+        static void RenderHUDOverlay();
 
     };
 

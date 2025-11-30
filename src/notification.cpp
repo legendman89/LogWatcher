@@ -2,36 +2,7 @@
 #include "watcher.hpp"
 #include "settings.hpp"
 #include "aggregator.hpp"
-
-void Logwatch::LogWatcher::releaseNotifications() {
-
-    if (messages.q.empty())
-        return;
-
-    const auto& st = Logwatch::GetSettings();
-
-    const auto now = Clock::now();
-
-    if (messages.nextAt.time_since_epoch().count() == 0) {
-        messages.nextAt = now + std::chrono::seconds(st.HUDDelaySec);
-        return;
-    }
-
-	if (now < messages.nextAt) {
-		return;
-	}
-
-	std::string message = std::move(messages.q.front());
-	messages.q.pop_front();
-
-	SKSE::GetTaskInterface()->AddTask(
-		[m = std::move(message)]() {
-			RE::DebugNotification(m.c_str());
-		}
-	);
-
-	messages.nextAt = now + std::chrono::seconds(st.HUDDelaySec);
-}
+#include "notification.hpp"
 
 void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
 {
@@ -86,27 +57,42 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
 
         // Craft message
         MailEntry entry;
+        HUDMessage hud;
+        std::string segmentText = modKey + ": ";
+        hud.push_back( { segmentText , Level::kOther } );
         entry.type = MailType::PinnedAlert;
         entry.when = std::chrono::system_clock::now();
         entry.title = modKey;
-        std::string message = "";
+        entry.summary = "";
 
         bool firstPiece = true;
         if (d.errors > 0) {
-            message += std::to_string(d.errors) + " new error" + (d.errors > 1 ? "s" : "");
+            segmentText = std::to_string(d.errors) + " error" + (d.errors > 1 ? "s" : "");
+            entry.summary += segmentText;
+            hud.push_back({ segmentText, Level::kError });
             firstPiece = false;
         }
         if (d.warnings > 0 && minLevel >= 1) {
-            if (!firstPiece) message += ", ";
-            message += std::to_string(d.warnings) + " new warning" + (d.warnings > 1 ? "s" : "");
+            if (!firstPiece) {
+                segmentText = ", ";
+                entry.summary += segmentText;
+                hud.push_back({ segmentText, Level::kOther });
+            }
+            segmentText = std::to_string(d.warnings) + " warning" + (d.warnings > 1 ? "s" : "");
+            entry.summary += segmentText;
+            hud.push_back({ segmentText, Level::kWarning });
             firstPiece = false;
         }
         if (d.fails > 0 && minLevel >= 2) {
-            if (!firstPiece) message += ", ";
-            message += std::to_string(d.fails) + " new fail" + (d.fails > 1 ? "s" : "");
+            if (!firstPiece) {
+                segmentText = ", ";
+                entry.summary += segmentText;
+                hud.push_back({ segmentText, Level::kOther });
+            }
+            segmentText = std::to_string(d.fails) + " fail" + (d.fails > 1 ? "s" : "");
+            entry.summary += segmentText;
+            hud.push_back({ segmentText, Level::kFail });
         }
-
-        entry.summary = message;
 
         // TODO: make it inline maybe?
         MailModDiff md;
@@ -116,7 +102,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
         md.fails = d.fails;
         entry.mods.push_back(std::move(md));
 
-        scheduleNotification(modKey + ": " + message);
+        scheduleNotification(std::move(hud));
         scheduleMail(std::move(entry));
 
         updatePinnedBase(modKey, curr, now);
