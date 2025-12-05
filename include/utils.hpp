@@ -38,6 +38,16 @@ namespace Utils {
         return std::string(u8.begin(), u8.end());
     }
 
+    inline void replaceAll(std::string& s, const std::string& from, const std::string& to) {
+        if (from.empty()) return;
+
+        size_t pos = 0;
+        while ((pos = s.find(from, pos)) != std::string::npos) {
+            s.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+    }
+
     inline bool isCppExt(const std::string& ext) {
         static const char* k[] = { "c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "ipp", "inl", "tpp", "ixx", "cppm" };
         for (auto* e : k)

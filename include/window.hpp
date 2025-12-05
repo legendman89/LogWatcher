@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "SKSEMenuFramework.h"
+#include "translate.hpp"
 
 using namespace ImGuiMCP;
 
@@ -30,12 +31,14 @@ namespace Live {
 
     inline std::string LevelsPreview(const DetailsState& ds) {
         std::string p;
-        if (ds.showError)   p += "Error, ";
-        if (ds.showWarning) p += "Warning, ";
-        if (ds.showFail)    p += "Fail, ";
-        if (ds.showOther)   p += "Other, ";
-        if (!p.empty()) p.resize(p.size() - 2);
-        if (p.empty())  p = "None";
+        if (ds.showError)   p += Trans::Tr("Watch.Table.Header.Errors"), p += ", ";
+        if (ds.showWarning) p += Trans::Tr("Watch.Table.Header.Warnings"), p += ", ";
+        if (ds.showFail)    p += Trans::Tr("Watch.Table.Header.Fails"), p += ", ";
+        if (ds.showOther)   p += Trans::Tr("Watch.Table.Header.Others"), p += ", ";
+        if (p.empty())
+            p = Trans::Tr("Watch.Details.Combo.None");
+        else 
+            p.resize(p.size() - 2);
         return p;
     }
 

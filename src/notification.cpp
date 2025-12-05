@@ -3,6 +3,7 @@
 #include "settings.hpp"
 #include "aggregator.hpp"
 #include "notification.hpp"
+#include "translate.hpp"
 
 void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
 {
@@ -67,7 +68,9 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
 
         bool firstPiece = true;
         if (d.errors > 0) {
-            segmentText = std::to_string(d.errors) + " error" + (d.errors > 1 ? "s" : "");
+            segmentText = (d.errors > 1 ? 
+                Trans::Tr("Notify.Pinned.Errors.Plural", d.errors) : 
+                Trans::Tr("Notify.Pinned.Errors", d.errors));
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kError });
             firstPiece = false;
@@ -78,7 +81,9 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
                 entry.summary += segmentText;
                 hud.push_back({ segmentText, Level::kOther });
             }
-            segmentText = std::to_string(d.warnings) + " warning" + (d.warnings > 1 ? "s" : "");
+            segmentText = (d.warnings > 1 ? 
+                Trans::Tr("Notify.Pinned.Warnings.Plural", d.warnings) :
+                Trans::Tr("Notify.Pinned.Warnings", d.warnings));
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kWarning });
             firstPiece = false;
@@ -89,7 +94,9 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
                 entry.summary += segmentText;
                 hud.push_back({ segmentText, Level::kOther });
             }
-            segmentText = std::to_string(d.fails) + " fail" + (d.fails > 1 ? "s" : "");
+            segmentText = (d.fails > 1 ? 
+                Trans::Tr("Notify.Pinned.Fails.Plural", d.fails) :
+                Trans::Tr("Notify.Pinned.Fails", d.fails));
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kFail });
         }

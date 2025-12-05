@@ -2,21 +2,22 @@
 #include "window.hpp"
 #include "helper.hpp"
 #include "aggregator.hpp"
+#include "translate.hpp"
 
 void Live::multiSelectCombo(DetailsState& ds) {
 	std::string preview = LevelsPreview(ds);
 	SolidBackground(ImGuiCol_PopupBg);
-	if (ImGui::BeginCombo("Levels", preview.c_str(), ImGuiComboFlags_WidthFitPreview)) {
-		if (ImGui::Checkbox("Error", &ds.showError)) {}
-		if (ImGui::Checkbox("Warning", &ds.showWarning)) {}
-		if (ImGui::Checkbox("Fail", &ds.showFail)) {}
-		if (ImGui::Checkbox("Other", &ds.showOther)) {}
+	if (ImGui::BeginCombo(Trans::Tr("Watch.Details.Combo.Levels").c_str(), preview.c_str(), ImGuiComboFlags_WidthFitPreview)) {
+		if (ImGui::Checkbox(Trans::Tr("Watch.Table.Header.Errors").c_str(), &ds.showError)) {}
+		if (ImGui::Checkbox(Trans::Tr("Watch.Table.Header.Warnings").c_str(), &ds.showWarning)) {}
+		if (ImGui::Checkbox(Trans::Tr("Watch.Table.Header.Fails").c_str(), &ds.showFail)) {}
+		if (ImGui::Checkbox(Trans::Tr("Watch.Table.Header.Others").c_str(), &ds.showOther)) {}
 		ImGui::Separator();
-		if (ImGui::Button("All")) {
+		if (ImGui::Button(Trans::Tr("Watch.Details.Combo.All").c_str())) {
 			ds.showError = ds.showWarning = ds.showFail = ds.showOther = true;
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("None")) {
+		if (ImGui::Button(Trans::Tr("Watch.Details.Combo.None").c_str())) {
 			ds.showError = ds.showWarning = ds.showFail = ds.showOther = false;
 		}
 		ImGui::EndCombo();
@@ -40,12 +41,12 @@ void Live::sliderAndAll(DetailsState& ds, const int& recentCached) {
 	if (recentCached <= 0) {
 		ImGui::BeginDisabled();
 		int zero = 0;
-		ImGui::SliderInt("Recent", &zero, 0, 0);
+		ImGui::SliderInt(Trans::Tr("Watch.Table.Header.Recent").c_str(), &zero, 0, 0);
 		ImGui::EndDisabled();
 	}
 	else {
 		if (ds.showAll) ImGui::BeginDisabled();
-		ImGui::SliderInt("Recent", &ds.recentLimit, 1, recentCached);
+		ImGui::SliderInt(Trans::Tr("Watch.Table.Header.Recent").c_str(), &ds.recentLimit, 1, recentCached);
 		if (ds.showAll) ImGui::EndDisabled();
 	}
 	ImGui::PopItemWidth();
@@ -53,7 +54,7 @@ void Live::sliderAndAll(DetailsState& ds, const int& recentCached) {
 	ImGui::SameLine(0.0f, 12.0f); 	// space before All
 
 	// check box toggled?
-	if (ImGui::Checkbox("All", &ds.showAll)) {
+	if (ImGui::Checkbox(Trans::Tr("Watch.Details.Combo.All").c_str(), &ds.showAll)) {
 		if (ds.showAll) {
 			// store current limit so we can restore later
 			ds.prevRecentLimit = ds.recentLimit > 0 ? ds.recentLimit : 1;
@@ -82,7 +83,7 @@ void Live::printMessages(DetailsState& ds) {
 	if (ds.showFail)    request |= Logwatch::Level::kFail;
 	if (ds.showOther)   request |= Logwatch::Level::kOther;
 
-	const std::size_t cap = ds.showAll ? SIZE_MAX : (size_t) ds.recentLimit;
+	const size_t cap = ds.showAll ? SIZE_MAX : (size_t) ds.recentLimit;
 	auto msgs = Logwatch::aggr.recentLevel(ds.mod, cap, request);
 
 	ImGui::BeginChild("lw_details_scroll", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);

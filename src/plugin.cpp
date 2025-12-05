@@ -9,8 +9,10 @@
 #include "plugin.hpp"
 #include "logger.hpp"
 #include "watcher.hpp"
+#include "translate.hpp"
 #include "aggregator.hpp"
 #include "settings_json.hpp"
+
 
 static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
 
@@ -58,6 +60,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     SKSE::Init(skse);
     setupLog(spdlog::level::info);
     logger::info("Log Watcher Plugin is Loaded");
+    Trans::GetTranslator().load();
     SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
     Live::Register();
     return true;

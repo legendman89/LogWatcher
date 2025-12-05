@@ -4,6 +4,7 @@
 #include "SKSEMenuFramework.h"
 #include "color.hpp"
 #include "statistics.hpp"
+#include "translate.hpp"
 
 using namespace ImGuiMCP;
 
@@ -28,7 +29,7 @@ namespace Live {
         return Colors::Other;
     }
 
-    inline const ImVec4& LevelColor(const Logwatch::Level& lvl, const float& alpha) {
+    inline ImVec4 LevelColor(const Logwatch::Level& lvl, const float& alpha) {
         ImVec4 color = Colors::White;
         if (lvl & Logwatch::Level::kError) color = Colors::Error;
         if (lvl & Logwatch::Level::kWarning) color = Colors::Warning;
@@ -65,22 +66,29 @@ namespace Live {
         if (diff < 0)
             diff = 0;
 
-        if (diff < 5)
-            return "just now";
+        if (diff < 5) {
+            return Trans::Tr("Mailbox.Time.JustNow").c_str();
+        }
 
-        if (diff < 60)
-            return std::to_string(diff) + " seconds ago";
+        if (diff < 60) {
+            return std::to_string(diff) + Trans::Tr("Mailbox.Time.SecondsAgo").c_str();
+        }
 
         auto minutes = diff / 60;
-        if (minutes < 60)
-            return std::to_string(minutes) + (minutes == 1 ? " minute ago" : " minutes ago");
+        if (minutes < 60) {
+            return std::to_string(minutes) + 
+                (minutes == 1 ? Trans::Tr("Mailbox.Time.MinuteAgo").c_str() : Trans::Tr("Mailbox.Time.MinutesAgo").c_str());
+        }
 
         auto hours = minutes / 60;
-        if (hours < 24)
-            return std::to_string(hours) + (hours == 1 ? " hour ago" : " hours ago");
+        if (hours < 24) {
+            return std::to_string(hours) + 
+                (hours == 1 ? Trans::Tr("Mailbox.Time.HourAgo").c_str() : Trans::Tr("Mailbox.Time.HoursAgo").c_str());
+        }
 
         auto days = hours / 24;
-        return std::to_string(days) + (days == 1 ? " day ago" : " days ago");
+        return std::to_string(days) + 
+            (days == 1 ? Trans::Tr("Mailbox.Time.DayAgo").c_str() : Trans::Tr("Mailbox.Time.DaysAgo").c_str());
     }
 
     inline void SolidBackground(const ImGuiCol& bgType) {

@@ -101,7 +101,14 @@ void Live::LogWatcherUI::DrawTable(
 		ImGui::TableSetupScrollFreeze(0, 1);
 
 		// Header
-		FOREACH_COLUMN(COL2SETUP);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Mod").c_str(), ImGuiTableColumnFlags_None, 110.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Errors").c_str(), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Warnings").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Fails").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Others").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Recent").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Pinned").c_str(), ImGuiTableColumnFlags_None, 35.0f);
+
 
 		ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, Colors::SteelHeaderBG);
 		ImGui::PushStyleColor(ImGuiCol_Text, Colors::BlueGrayHeaderTxt);
@@ -136,7 +143,7 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	}
 
 	ImGui::SetNextWindowSize(ImVec2(1200, 800), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Mod Details", &ds.open, ImGuiWindowFlags_NoSavedSettings)) {
+	if (!ImGui::Begin(Trans::Tr("Watch.Details.Title").c_str(), &ds.open, ImGuiWindowFlags_NoSavedSettings)) {
 		ImGui::End();
 		if (pushedWinBg) ImGui::PopStyleColor();
 		return;
@@ -145,7 +152,7 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	const auto modName = ds.mod;
 
 	if (modName.empty()) {
-		ImGui::TextDisabled("No mod selected.");
+		ImGui::TextDisabled(Trans::Tr("Watch.Details.Empty").c_str());
 		ImGui::End();
 		if (pushedWinBg) ImGui::PopStyleColor();
 		return;
@@ -160,9 +167,9 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	ImGui::SetWindowFontScale(1.0f);
 	ImGui::PopStyleColor(1);
 	ImGui::SameLine(0.0f, 12.0f);
-	ImGui::Checkbox("Auto-scroll", &ds.autoScroll);
+	ImGui::Checkbox(Trans::Tr("Watch.Details.AutoScroll").c_str(), &ds.autoScroll);
 	ImGui::SameLine(0.0f, 12.0f);
-	ImGui::Checkbox("Opaque", &ds.opaque);
+	ImGui::Checkbox(Trans::Tr("Watch.Details.Opaque").c_str(), &ds.opaque);
 	ImGui::SameLine(0.0f, 12.0f);
 
 	// Multi-select for levels
@@ -170,7 +177,7 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 
 	ImGui::Dummy(ImVec2(0, 5));
 
-	ds.filter.Draw("Filter");
+	ds.filter.Draw(Trans::Tr("Watch.Details.Filter").c_str());
 
 	ImGui::Separator();
 
@@ -180,7 +187,7 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	const auto snap = Logwatch::aggr.snapshot();
 	const auto it = snap.find(modName);
 	if (it == snap.end()) {
-		ImGui::TextDisabled("No data for this mod yet (maybe log rotated).");
+		ImGui::TextDisabled(Trans::Tr("Watch.Details.NoData").c_str());
 		ImGui::End();
 		if (pushedWinBg) ImGui::PopStyleColor();
 		return;
@@ -194,15 +201,20 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 
 	ImGui::SameLine(0.0f, 18.0f);
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextColored(Colors::Error, "Errors: %d", modstats.errors);
+	std::string label = Trans::Tr("Watch.Table.Header.Errors"); label += ": %d";
+	ImGui::TextColored(Colors::Error, label.c_str(), modstats.errors);
 	ImGui::SameLine(0.0f, 10.0f);
-	ImGui::TextColored(Colors::Warning, "Warnings: %d", modstats.warnings);
+	label = Trans::Tr("Watch.Table.Header.Warnings"); label += ": %d";
+	ImGui::TextColored(Colors::Warning, label.c_str(), modstats.warnings);
 	ImGui::SameLine(0.0f, 10.0f);
-	ImGui::TextColored(Colors::Fail, "Fails: %d", modstats.fails);
+	label = Trans::Tr("Watch.Table.Header.Fails"); label += ": %d";
+	ImGui::TextColored(Colors::Fail, label.c_str(), modstats.fails);
 	ImGui::SameLine(0.0f, 10.0f);
-	ImGui::TextColored(Colors::Other, "Others: %d", modstats.others);
+	label = Trans::Tr("Watch.Table.Header.Others"); label += ": %d";
+	ImGui::TextColored(Colors::Other, label.c_str(), modstats.others);
 	ImGui::SameLine(0.0f, 12.0f);
-	ImGui::TextColored(Colors::DimGray, "(cached: %d / %d)", recentCached, int(cap));
+	label = "("; label += Trans::Tr("Watch.Details.Cached"); label += ": %d / %d)";
+	ImGui::TextColored(Colors::DimGray, label.c_str(), recentCached, int(cap));
 
 	ImGui::Separator();
 
@@ -232,16 +244,16 @@ void Live::LogWatcherUI::RenderMailbox()
 	ImGui::BeginChild("lw_mailbox_list", ImVec2(0.6f * GetAvail().x, 0),
 		ImGuiChildFlags_Border, ImGuiWindowFlags_None);
 
-	if (ImGui::BeginTable("MailboxTable", 4,
+	if (ImGui::BeginTable("MailBoxTable", 4,
 		ImGuiTableFlags_RowBg |
 		ImGuiTableFlags_BordersInnerH |
 		ImGuiTableFlags_Resizable |
 		ImGuiTableFlags_ScrollY))
 	{
-		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-		ImGui::TableSetupColumn("Title", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableSetupColumn("Summary", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Mailbox.Left.Table.Header.Type").c_str(), ImGuiTableColumnFlags_WidthFixed, 80.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Mailbox.Left.Table.Header.Title").c_str(), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(Trans::Tr("Mailbox.Left.Table.Header.Summary").c_str(), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(Trans::Tr("Mailbox.Left.Table.Header.When").c_str(), ImGuiTableColumnFlags_WidthFixed, 120.0f);
 		ImGui::TableHeadersRow();
 
 		for (auto i = 0; i < (int)entries.size(); ++i) {
@@ -257,13 +269,13 @@ void Live::LogWatcherUI::RenderMailbox()
 			switch (e.type) {
 				case Logwatch::MailType::PeriodicAlert:
 				{
-					typeLabel = "Periodic";
+					typeLabel = Trans::Tr("Mailbox.Left.Type.Periodic").c_str();
 					typeColor = Colors::White;
 					break;
 				}
 				case Logwatch::MailType::PinnedAlert:
 				{
-					typeLabel = "Pinned";
+					typeLabel = Trans::Tr("Mailbox.Left.Type.Pinned").c_str();
 					typeColor = Colors::PinGold;
 					break;
 				}
@@ -303,12 +315,12 @@ void Live::LogWatcherUI::RenderMailbox()
 	if (entries.empty()) {
 		selected = -1;
 		ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
-		ImGui::TextDisabled("No new messages.");
+		ImGui::TextDisabled(Trans::Tr("Mailbox.Right.Empty.Title").c_str());
 		ImGui::PopStyleColor();
 	}
 	else if (selected < 0 || selected >= (int)entries.size()) {
 		ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
-		ImGui::TextDisabled("Select a message on the left to see details.");
+		ImGui::TextDisabled(Trans::Tr("Mailbox.Right.Help.Select").c_str());
 		ImGui::PopStyleColor();
 	}
 	else {
@@ -328,10 +340,10 @@ void Live::LogWatcherUI::RenderMailbox()
 				ImGuiTableFlags_BordersInnerH |
 				ImGuiTableFlags_Resizable))
 			{
-				ImGui::TableSetupColumn("Mod", ImGuiTableColumnFlags_WidthStretch);
-				ImGui::TableSetupColumn("Errors", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-				ImGui::TableSetupColumn("Warnings", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-				ImGui::TableSetupColumn("Fails", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+				ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Mod").c_str(), ImGuiTableColumnFlags_WidthStretch);
+				ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Errors").c_str(), ImGuiTableColumnFlags_WidthFixed, 70.0f);
+				ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Warnings").c_str(), ImGuiTableColumnFlags_WidthFixed, 80.0f);
+				ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Fails").c_str(), ImGuiTableColumnFlags_WidthFixed, 70.0f);
 				ImGui::TableHeadersRow();
 
 				for (const auto& m : e.mods) {
@@ -361,7 +373,7 @@ void Live::LogWatcherUI::RenderMailbox()
 		}
 		else {
 			ImGui::PushStyleColor(ImGuiCol_TextDisabled, Colors::DimGray);
-			ImGui::TextDisabled("No details for this mod.");
+			ImGui::TextDisabled(Trans::Tr("Mailbox.Right.Body.Empty").c_str());
 			ImGui::PopStyleColor();
 		}
 
@@ -489,8 +501,8 @@ void Live::Register() {
 		return;
 	}
 	SKSEMenuFramework::SetSection("Log Watcher");
-	SKSEMenuFramework::AddSectionItem("Watch", LogWatcherUI::RenderWatch);
-	SKSEMenuFramework::AddSectionItem("Mailbox", LogWatcherUI::RenderMailbox);
-	SKSEMenuFramework::AddSectionItem("Settings", LogWatcherUI::RenderSettings);
+	SKSEMenuFramework::AddSectionItem(Trans::Tr("Watch.TabTitle").c_str(), LogWatcherUI::RenderWatch);
+	SKSEMenuFramework::AddSectionItem(Trans::Tr("Mailbox.TabTitle").c_str(), LogWatcherUI::RenderMailbox);
+	SKSEMenuFramework::AddSectionItem(Trans::Tr("Settings.TabTitle").c_str(), LogWatcherUI::RenderSettings);
 	SKSEMenuFramework::AddHudElement(LogWatcherUI::RenderHUDOverlay);
 }

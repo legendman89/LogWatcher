@@ -6,23 +6,20 @@
 #include "color.hpp"
 #include "helper.hpp"
 #include "aggregator.hpp"
+#include "translate.hpp"
 
 namespace Live {
 
 #define FOREACH_COLUMN(COL) \
-    COL(Mod,      ImGuiTableColumnFlags_None,                   110.0f) \
-    COL(Errors,   ImGuiTableColumnFlags_DefaultSort |                   \
-                  ImGuiTableColumnFlags_PreferSortDescending,   45.0f) \
-    COL(Warnings, ImGuiTableColumnFlags_PreferSortDescending,   45.0f) \
-    COL(Fails,    ImGuiTableColumnFlags_PreferSortDescending,   45.0f) \
-    COL(Others,   ImGuiTableColumnFlags_PreferSortDescending,   45.0f) \
-    COL(Recent,   ImGuiTableColumnFlags_PreferSortDescending,   45.0f) \
-    COL(Pinned,   ImGuiTableColumnFlags_None,                   35.0f)
+    COL(Mod) \
+    COL(Errors) \
+    COL(Warnings) \
+    COL(Fails) \
+    COL(Others) \
+    COL(Recent) \
+    COL(Pinned)
 
-
-#define COL2SETUP(NAME, FLAGS, WIDTH) ImGui::TableSetupColumn(#NAME, FLAGS, WIDTH);
-#define COL2ENUM(NAME, FLAGS, WIDTH) NAME,
-#define COL2STR(NAME, FLAGS, WIDTH) #NAME,
+#define COL2ENUM(NAME) NAME,
 
     enum class Column : int { FOREACH_COLUMN(COL2ENUM) Count };
 
@@ -74,7 +71,10 @@ namespace Live {
             Logwatch::aggr.setPinned(r.mod, !r.pinned);
             r.pinned = !r.pinned;
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip(r.pinned ? "Unpin" : "Pin");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(r.pinned ?
+                Trans::Tr("Watch.Table.Tooltip.Unpin").c_str() : Trans::Tr("Watch.Table.Tooltip.Pin").c_str());
+        }
     }
 
     void addTableControls(PanelState& ps);

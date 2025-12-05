@@ -1,6 +1,7 @@
 # Source: Thiago (SKSE Menu Framework Example 3).
-# Edited to add debug info for 'Release', and
-# pass PRODUCT_NAME as a preprocessor.
+# Edited to add debug info for 'Release', 
+# Setup a translation folder, and
+# pass variables as a preprocessors.
 
 
 # ---------------------------------------------------- #
@@ -31,6 +32,8 @@ cmake_minimum_required(VERSION 3.21)
 set(AUTHOR_NAME "Legendman")
 set(PRODUCT_NAME "LogWatcher")
 set(BEAUTIFUL_NAME "Log Watcher")
+set(SETTINGS_DIR "Settings")
+set(TRANS_DIR "Translation")
 
 project(${PRODUCT_NAME} VERSION 2.0.4.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
@@ -117,9 +120,10 @@ if (MSVC)
     )
 endif()
 
-# Make PRODUCT_NAME available as a string macro in C++ files
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE PRODUCT_NAME=\"${PRODUCT_NAME}\"
+    PRIVATE TRANS_DIR=\"${TRANS_DIR}\"
+    PRIVATE SETTINGS_DIR=\"${SETTINGS_DIR}\"
 )
 
 

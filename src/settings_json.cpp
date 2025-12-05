@@ -2,6 +2,7 @@
 #include "logger.hpp"
 #include "aggregator.hpp"
 #include "settings_json.hpp"
+#include "utils.hpp"
 
 Logwatch::SettingPersister Logwatch::settingsPersister{};
 
@@ -53,7 +54,7 @@ void Logwatch::SettingPersister::saveState() {
 		oldSettings = s;
 		oldPinsHash = pinsHash;
 
-		logger::info("Saved settings and pins to {}", path);
+		logger::info("Saved settings and pins to {}", Utils::toUTF8(path));
 	}
 	catch (const std::exception& e) {
 		std::error_code ec;
@@ -64,14 +65,27 @@ void Logwatch::SettingPersister::saveState() {
 
 bool Logwatch::SettingPersister::loadState() {
 	try {
-		const auto path = GetSettingsPath();
-		if (!fs::exists(path)) { 
-			logger::info("No config at {}; using defaults", path); 
-			return false;
+		fs::path path = GetSettingsPath();
+		fs::path oldPath = GetSettingsOldPath();
+		fs::path chosen;
+
+		if (fs::exists(path)) {
+			chosen = path;
+		}
+		else {
+			logger::info("No config at {}", Utils::toUTF8(path));
+			if (fs::exists(oldPath)) {
+				logger::info("Found legacy config at {}", Utils::toUTF8(oldPath));
+				chosen = oldPath;
+			}
+			else {
+				logger::info("No config at {} either; using defaults", Utils::toUTF8(oldPath));
+				return false;
+			}
 		}
 
-		std::ifstream in(path, std::ios::binary);
-		json root = json::parse(in);
+		std::ifstream in(chosen, std::ios::binary);
+		json root = json::parse(in, nullptr, true, true);
 
 		int ver = root.value("version", 1);
 		(void)ver; // (prevents the annoying compiler warnings for now)
@@ -90,7 +104,7 @@ bool Logwatch::SettingPersister::loadState() {
 			oldPinsHash = 0;
 		}
 
-		logger::info("Loaded settings and pins from {}", path);
+		logger::info("Loaded settings and pins from {}", Utils::toUTF8(chosen));
 		return true;
 	}
 	catch (const std::exception& e) {

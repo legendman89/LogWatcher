@@ -1,6 +1,7 @@
 
 #include "watcher.hpp"
 #include "settings.hpp"
+#include "translate.hpp"
 
 void Logwatch::LogWatcher::updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval) {
     periodicLastPerMod.clear();
@@ -102,13 +103,14 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const Snapshot& snap) {
     MailEntry entry;
     entry.type = MailType::PeriodicAlert;
     entry.when = std::chrono::system_clock::now();
-    entry.title = "Summary (last " + std::to_string(intervalSec) + "s)";
+    entry.title = Trans::Tr("Notify.Periodic.Title");
+    Utils::replaceAll(entry.title, "{sec}", std::to_string(intervalSec));
 
-    entry.summary = "Total: " +
-        std::to_string(totalCounts.errors) + " errors, " +
-        std::to_string(totalCounts.warnings) + " warnings, " +
-        std::to_string(totalCounts.fails) + " fails from " +
-        std::to_string(modsWithIssues) + " mods";
+    entry.summary = Trans::Tr("Notify.Periodic.Total");
+    Utils::replaceAll(entry.summary, "{errors}", std::to_string(totalCounts.errors));
+    Utils::replaceAll(entry.summary, "{warnings}", std::to_string(totalCounts.warnings));
+    Utils::replaceAll(entry.summary, "{fails}", std::to_string(totalCounts.fails));
+    Utils::replaceAll(entry.summary, "{mods}", std::to_string(modsWithIssues));
 
     for (auto i = 0; i < modsToShow; ++i) {
         MailModDiff md;

@@ -4,24 +4,25 @@
 #include "helper.hpp"
 #include "loading.hpp"
 #include "aggregator.hpp"
+#include "translate.hpp"
 
 void Live::addTableControls(PanelState& ps) {
 	ImGui::PushItemWidth(280.0f);
-	ps.filter.Draw("Filter");
+	ps.filter.Draw(Trans::Tr("Watch.Panel.Filter.Label").c_str());
 	ImGui::PopItemWidth();
 	ImGui::SameLine();
-	ImGui::Checkbox("Opaque", &ps.opaque);
+	ImGui::Checkbox(Trans::Tr("Watch.Panel.Opaque.Label").c_str(), &ps.opaque);
 
 	ImGui::Dummy(ImVec2(0, 5));
-	if (ImGui::Button("Clear Pins")) {
+	if (ImGui::Button(Trans::Tr("Watch.Panel.ClearPins.Label").c_str())) {
 		Logwatch::aggr.clearPins();
 	}
 	ImGui::SameLine();
-	ImGui::Checkbox("Pin first", &ps.pinFirst);
+	ImGui::Checkbox(Trans::Tr("Watch.Panel.PinFirst.Label").c_str(), &ps.pinFirst);
 	ImGui::SameLine();
-	ImGui::Checkbox("Show pinned only", &ps.showPinnedOnly);
+	ImGui::Checkbox(Trans::Tr("Watch.Panel.ShowPinnedOnly.Label").c_str(), &ps.showPinnedOnly);
 
-	renderLoadingOverlay("Warming up", BusyTimings::RESERVE);
+	renderLoadingOverlay(Trans::Tr("Watch.Panel.WarmingUp.Label").c_str(), BusyTimings::RESERVE);
 
 	ImGui::Dummy(ImVec2(0, 6));
 }
@@ -81,7 +82,7 @@ void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vec
 			ds.mod = r.mod;
 			ds.open = true;
 		}
-		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Click to view details");
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip(Trans::Tr("Watch.Table.Tooltip.ModDetails").c_str());
 
 		// Errors
 		ImGui::TableNextColumn();
