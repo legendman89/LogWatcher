@@ -1,8 +1,6 @@
 ﻿#pragma once
 
-#include "SKSEMenuFramework.h"
-
-using namespace ImGuiMCP;
+#include "ui.hpp"
 
 namespace Colors {
 

@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "SKSEMenuFramework.h"
+#include "ui.hpp"
 #include "table.hpp"
 #include "window.hpp"
 #include "watcher.hpp" 

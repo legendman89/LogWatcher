@@ -287,10 +287,12 @@ void Live::LogWatcherUI::RenderMailbox()
 			// Title
 			ImGui::TableNextColumn();
 			bool rowSelected = (i == selected);
-			if (ImGui::Selectable(e.title.c_str(), rowSelected,
-				ImGuiSelectableFlags_SpanAllColumns)) {
+
+			ImGui::PushID(i);
+			if (ImGui::Selectable(e.title.c_str(), rowSelected, ImGuiSelectableFlags_SpanAllColumns)) {
 				selected = i;
 			}
+			ImGui::PopID();
 
 			// Summary
 			ImGui::TableNextColumn();
@@ -358,14 +360,14 @@ void Live::LogWatcherUI::RenderMailbox()
 					if (m.errors > 0) ImGui::PopStyleColor();
 
 					ImGui::TableNextColumn();
-					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
+					if (m.warnings > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
 					ImGui::Text("%llu", m.warnings);
-					if (m.errors > 0) ImGui::PopStyleColor();
+					if (m.warnings > 0) ImGui::PopStyleColor();
 
 					ImGui::TableNextColumn();
-					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
+					if (m.fails > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
 					ImGui::Text("%llu", m.fails);
-					if (m.errors > 0) ImGui::PopStyleColor();
+					if (m.fails > 0) ImGui::PopStyleColor();
 				}
 
 				ImGui::EndTable();
@@ -376,9 +378,6 @@ void Live::LogWatcherUI::RenderMailbox()
 			ImGui::TextDisabled(Trans::Tr("Mailbox.Right.Body.Empty").c_str());
 			ImGui::PopStyleColor();
 		}
-
-		// TODO: a button to jump to Watch
-		// if (ImGui::Button("View in Watch")) ...
 	}
 
 	ImGui::EndChild();

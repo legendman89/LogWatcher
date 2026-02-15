@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include "SKSEMenuFramework.h"
+#include "ui.hpp"
 #include "color.hpp"
 #include "helper.hpp"
 #include "aggregator.hpp"

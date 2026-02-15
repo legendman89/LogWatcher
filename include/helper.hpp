@@ -1,12 +1,10 @@
 ﻿#pragma once
 
 #include <string>
-#include "SKSEMenuFramework.h"
+#include "ui.hpp"
 #include "color.hpp"
 #include "statistics.hpp"
 #include "translate.hpp"
-
-using namespace ImGuiMCP;
 
 namespace Live {
 
@@ -17,9 +15,7 @@ namespace Live {
     }
 
     inline ImVec2 GetWinMax() {
-        ImVec2 out{};
-        ImGui::GetWindowContentRegionMax(&out);
-        return out;
+        return ImGui::GetWindowContentRegionMax();
     }
 
     inline const ImVec4& LevelColor(const std::string& lvl) {

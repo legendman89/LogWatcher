@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "SKSEMenuFramework.h"
+#include "ui.hpp"
 #include "helper.hpp"
 #include "loading.hpp"
 #include "color.hpp"

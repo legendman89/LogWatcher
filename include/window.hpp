@@ -2,10 +2,8 @@
 
 #include <string>
 #include <vector>
-#include "SKSEMenuFramework.h"
+#include "ui.hpp"
 #include "translate.hpp"
-
-using namespace ImGuiMCP;
 
 namespace Live {
 
