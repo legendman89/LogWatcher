@@ -11,6 +11,7 @@ namespace Logwatch {
 #define FOREACH_BOOL_SETTING(S) \
     S(pauseWatcher,             false) \
     S(deepScan,                 false) \
+    S(saveWatch,                true) \
     S(watchPapyrus,             true) \
     S(autoBoostOnBacklog,       true) \
     S(persistPins,              true) \

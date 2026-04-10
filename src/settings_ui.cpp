@@ -63,6 +63,9 @@ void Live::LogWatcherUI::RenderSettings()
 			ImGui::Dummy(ImVec2(0, 4));
 			ImGui::Checkbox(Trans::Tr("Settings.History.DeepScan.Label").c_str(), &st.deepScan);
 			Live::HelpMarker(Trans::Tr("Settings.History.DeepScan.Tooltip").c_str());
+			ImGui::SameLine(0.0f, 12.f);
+			ImGui::Checkbox(Trans::Tr("Settings.History.SaveWatch.Label").c_str(), &st.saveWatch);
+			Live::HelpMarker(Trans::Tr("Settings.History.SaveWatch.Tooltip").c_str());
 			ImGui::Dummy(ImVec2(0, 4));
 		}
 

@@ -12,6 +12,126 @@
 
 Logwatch::LogWatcher Logwatch::watcher;
 
+std::string Logwatch::LogWatcher::watchSnapshotPath(const std::string& ext) const {
+    const auto root = fs::path(REL::Module::get().filename()).parent_path();
+	const std::string fileName = "WatchSnapshot." + ext;
+    return (root / "Data" / "SKSE" / "Plugins" / PRODUCT_NAME / "Watch" / fileName).string();
+}
+
+std::string Logwatch::LogWatcher::watchTimeStamp() const {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm{};
+#if defined(_WIN32)
+    localtime_s(&tm, &time);
+#else
+    localtime_r(&t, &tm);
+#endif
+
+    std::ostringstream out;
+    out << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    return out.str();
+}
+
+void Logwatch::LogWatcher::getSortedSnapshot(std::vector<std::pair<std::string, Counts>>& sorted, const Snapshot& snap) const {
+    sorted.reserve(snap.size());
+    for (const auto& [modKey, s] : snap) {
+        Counts c;
+        c.errors = s.errors;
+        c.warnings = s.warnings;
+        c.fails = s.fails;
+        c.others = s.others;
+        sorted.emplace_back(modKey, c);
+    }
+    std::sort(sorted.begin(), sorted.end(),
+        [](const auto& a, const auto& b) {
+            return a.first < b.first;
+        });
+}
+
+size_t Logwatch::LogWatcher::hashWatchSnapshot(const Snapshot& snap) const {
+    std::vector<std::pair<std::string, Counts>> sortedSnap;
+	getSortedSnapshot(sortedSnap, snap);
+
+	// Same as FNV-1a, but we mix in counts for each mod.
+    constexpr uint64_t FNV_OFFSET = 1469598103934665603ull;
+    constexpr uint64_t FNV_PRIME = 1099511628211ull;
+
+    uint64_t h = FNV_OFFSET;
+
+    for (const auto& [mod, s] : snap) {
+
+        uint64_t he = FNV_OFFSET;
+        for (unsigned char c : mod) {
+            he ^= c;
+            he *= FNV_PRIME;
+        }
+
+#define mix(count) he ^= count; he *= FNV_PRIME;
+
+        mix(s.errors);
+        mix(s.warnings);
+        mix(s.fails);
+        mix(s.others);
+
+        h ^= he;
+        h *= FNV_PRIME;
+    }
+
+    return size_t(h);
+}
+
+inline void writeWatchToFile(std::ofstream& to, const std::string& ts, const std::vector<std::pair<std::string, Logwatch::Counts>>& sortedSnap) {
+    to << "-----[ Watch Snapshot @ " << ts << " ]--------------\n";
+    for (const auto& [mod, c] : sortedSnap) {
+        to << mod
+            << ", " << c.errors << " errors"
+            << ", " << c.warnings << " warnings"
+            << ", " << c.fails << " fails"
+            << ", " << c.others << " others"
+            << "\n";
+    }
+    to << "\n";
+    to.flush();
+}
+
+void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
+    if (!config.saveWatch) return;
+
+    const size_t currentHash = hashWatchSnapshot(snap);
+    if (currentHash == lastWatchHash) return;
+    lastWatchHash = currentHash;
+
+    const auto outPath = watchSnapshotPath("log");
+    const auto csvPath = watchSnapshotPath("csv");
+    fs::create_directories(fs::path(outPath).parent_path());
+
+    std::vector<std::pair<std::string, Counts>> sortedSnap;
+    getSortedSnapshot(sortedSnap, snap);
+
+    const std::string ts = watchTimeStamp();
+
+    try {
+        std::ofstream out(outPath, std::ios::trunc);
+        std::ofstream csv(csvPath, std::ios::trunc);
+        if (!out) {
+            logger::error("saveWatchIfChanged failed to open {}", outPath);
+            return;
+        }
+        if (!csv) {
+            logger::error("saveWatchIfChanged failed to open {}", csvPath);
+            return;
+        }
+
+		writeWatchToFile(out, ts, sortedSnap);
+		writeWatchToFile(csv, ts, sortedSnap);
+    }
+    catch (const std::exception& e) {
+        logger::error("saveWatchIfChanged failed due to {}", e.what());
+    }
+}
+
 void Logwatch::OnMatch(const Match& m) {
     if (m.file.find("Log Watcher") == std::string::npos) {
         SKSE::log::debug("File:{} Level:{} Line No.:{}", m.file, m.level, m.lineNo);
@@ -99,6 +219,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
         // Schedule notifications / mails
         if (!stop.stop_requested()) {
             const auto snap = aggr.snapshot();
+			saveWatchIfChanged(snap);
             mayNotifyPinnedAlerts(snap);
             mayNorifyPeriodicAlerts(snap);
         }

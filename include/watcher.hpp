@@ -36,6 +36,7 @@ namespace Logwatch {
     using Callback = std::function<void(const Match&)>;
 
     class LogWatcher {
+
     private:
 
         // Watcher thread. Must be jthread, std::thread won't help for shit here.
@@ -82,6 +83,15 @@ namespace Logwatch {
 
         // Mail.
         MailBox mailbox;
+
+        // For saving watch.
+        size_t lastWatchHash{ 0 };
+
+        size_t hashWatchSnapshot(const Snapshot& snap) const;
+		void getSortedSnapshot(std::vector<std::pair<std::string, Counts>>& out, const Snapshot& snap) const;
+        void saveWatchIfChanged(const Snapshot& snap);
+        std::string watchSnapshotPath(const std::string& ext) const;
+        std::string watchTimeStamp() const;
 
         // Worker body.
         void watcherLoop(const std::stop_token& stop);
