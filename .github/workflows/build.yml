@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    paths-ignore:
+      - "**/README.md"
+      - "**/VERSION"
+      - "**/.gitignore"
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      COMMONLIB_SSE_FOLDER: ${{ github.workspace }}\external\CommonLibVR
+      VCPKG_ROOT: ${{ github.workspace }}\external\vcpkg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout CommonLibVR
+        uses: actions/checkout@v4
+        with:
+          repository: alandtse/CommonLibVR
+          ref: ng
+          path: external/CommonLibVR
+          submodules: recursive
+
+      - name: Checkout vcpkg
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          path: external/vcpkg
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Bootstrap vcpkg
+        run: .\external\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+      - name: Configure
+        run: cmake --preset debug
+
+      - name: Build
+        run: cmake --build build/debug --config Debug
