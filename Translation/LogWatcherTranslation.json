@@ -177,6 +177,10 @@
   "Settings.Notifications.PinnedMinLevel.Option1": "Errors + warnings",
   "Settings.Notifications.PinnedMinLevel.Option2": "Errors + warnings + fails",
 
+  "Settings.Diagnostics.Header": "Diagnostics",
+  "Settings.Diagnostics.VerboseLogging.Label": "Verbose logging",
+  "Settings.Diagnostics.VerboseLogging.Tooltip": "Writes per-file tail activity, snapshot saves, and heartbeat details to LogWatcher.log.\nUseful for diagnosing missed updates or unexpected behaviour.\nLeave off in normal use because it generates a lot of output.",
+
   "Settings.Apply.SaveAndApply.Label": "Save and Apply",
   "Settings.Apply.LoadDefaults.Label": "Load Defaults",
   "Settings.Apply.Applying.Status": "Applying",

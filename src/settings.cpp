@@ -32,6 +32,7 @@ void Logwatch::applyNow() {
     // Manual adjustment
     config.pollIntervalMs = std::clamp(st.pollIntervalMs, 100, 5000);
     config.pollInterval = std::chrono::milliseconds{ config.pollIntervalMs };
+    config.applyLoggingLevel();
 
     aggr.setCapacity((size_t)st.cacheCap);
 

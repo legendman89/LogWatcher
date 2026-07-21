@@ -264,24 +264,24 @@ void Live::LogWatcherUI::RenderMailbox()
 			ImGui::TableNextColumn();
 
 			// TODO: replace type with fontawesome icons
-			const char* typeLabel = "";
+			std::string typeLabel;
 			ImVec4 typeColor(1, 1, 1, 1);
 			switch (e.type) {
 				case Logwatch::MailType::PeriodicAlert:
 				{
-					typeLabel = Trans::Tr("Mailbox.Left.Type.Periodic").c_str();
+					typeLabel = Trans::Tr("Mailbox.Left.Type.Periodic");
 					typeColor = Colors::White;
 					break;
 				}
 				case Logwatch::MailType::PinnedAlert:
 				{
-					typeLabel = Trans::Tr("Mailbox.Left.Type.Pinned").c_str();
+					typeLabel = Trans::Tr("Mailbox.Left.Type.Pinned");
 					typeColor = Colors::PinGold;
 					break;
 				}
 			}
 			ImGui::PushStyleColor(ImGuiCol_Text, typeColor);
-			ImGui::TextUnformatted(typeLabel);
+			ImGui::TextUnformatted(typeLabel.c_str());
 			ImGui::PopStyleColor();
 
 			// Title

@@ -28,6 +28,11 @@ namespace Logwatch {
             : includeFileRegex(R"((?:^|[\\/]).+\.(?:log)$)", std::regex::icase)
             , excludeFileRegex(R"((^|[\\/])crash-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.log$)", std::regex::icase)
             , patterns{
+                {"fail",
+                    std::regex(
+                      R"(\[\s*info\s*\].*(\berr(?:or)?\b|\bcrit(?:ical)?\b|\[\s*e\s*\]|\(\s*e\s*\)))",
+                    std::regex::icase)
+                },
                 {"error", 
                     std::regex(
                       R"((\[\s*(error|e|critical|crit)\s*\])"
@@ -64,6 +69,12 @@ namespace Logwatch {
             FOREACH_SIZE_SETTING(SETTING2CONFIG);
             FOREACH_FLT_SETTING(SETTING2CONFIG);
 			pollInterval = std::chrono::milliseconds{ pollIntervalMs };
+            applyLoggingLevel();
+        }
+
+        void applyLoggingLevel() const {
+            spdlog::set_level(verboseLogging ? spdlog::level::debug : spdlog::level::info);
+            spdlog::flush_on(spdlog::level::info);
         }
 
         void print() const {

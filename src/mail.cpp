@@ -2,6 +2,7 @@
 #include "watcher.hpp"
 #include "settings.hpp"
 #include "translate.hpp"
+#include "utils.hpp"
 
 void Logwatch::LogWatcher::updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval) {
     periodicLastPerMod.clear();

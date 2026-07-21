@@ -199,6 +199,13 @@ void Live::LogWatcherUI::RenderSettings()
 			ImGui::Dummy(ImVec2(0, 4));
 		}
 
+		if (ImGui::CollapsingHeader(Trans::Tr("Settings.Diagnostics.Header").c_str(), 0)) {
+			ImGui::Dummy(ImVec2(0, 4));
+			ImGui::Checkbox(Trans::Tr("Settings.Diagnostics.VerboseLogging.Label").c_str(), &st.verboseLogging);
+			HelpMarker(Trans::Tr("Settings.Diagnostics.VerboseLogging.Tooltip").c_str());
+			ImGui::Dummy(ImVec2(0, 4));
+		}
+
 		ImGui::Separator();
 
 		static BusyState busyState = BusyState::Idle;

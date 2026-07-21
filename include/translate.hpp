@@ -65,7 +65,7 @@ namespace Trans {
             if (it != table.end()) {
                 return it->second;
             }
-			return key;
+			return table.emplace(key, key).first->second;
         }
 
     };
@@ -79,7 +79,7 @@ namespace Trans {
         return GetTranslator().get(key);
     }
 
-    inline const std::string& Tr(const std::string& key, const int& n) {
+    inline std::string Tr(const std::string& key, const int& n) {
 		std::string s = Tr(key);
 		Utils::replaceAll(s, "{n}", std::to_string(n));
 		return s;

@@ -100,7 +100,7 @@ namespace Logwatch {
         void scanOnce(const std::stop_token& stop);
         bool shouldInclude(const fs::path& file) const;
         void discoverFiles(std::vector<fs::path>& out, const fs::path& root, const std::stop_token& stop);
-        void tailFile(FileInfo& fi, const std::stop_token& stop);
+        void tailFile(FileInfo& fi, const uint64_t& size, const std::stop_token& stop);
 
         // TODO: make chunk constant.
         void parseBufferAndEmit(FileInfo& fi, std::string&& chunk, const std::stop_token& stop);

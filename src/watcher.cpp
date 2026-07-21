@@ -2,6 +2,7 @@
 #include <codecvt>
 #include <locale>
 #include <filesystem>
+#include <fstream>
 
 #include "config.hpp"
 #include "watcher.hpp"
@@ -9,6 +10,17 @@
 #include "logger.hpp"
 #include "documents.hpp"
 #include "aggregator.hpp"
+
+static bool getRealFileSize(const std::filesystem::path& p, uint64_t& size) {
+    std::ifstream file(p, std::ios::binary | std::ios::ate);
+    if (!file) return false;
+
+    const std::streamoff pos = file.tellg();
+    if (pos < 0) return false;
+
+    size = static_cast<uint64_t>(pos);
+    return true;
+}
 
 Logwatch::LogWatcher Logwatch::watcher;
 
@@ -102,6 +114,7 @@ void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
     const size_t currentHash = hashWatchSnapshot(snap);
     if (currentHash == lastWatchHash) return;
     lastWatchHash = currentHash;
+    logger::debug("[Snapshot] Saving WatchSnapshot for {} tracked mods", snap.size());
 
     const auto outPath = watchSnapshotPath("log");
     const auto csvPath = watchSnapshotPath("csv");
@@ -149,6 +162,7 @@ bool Logwatch::LogWatcher::shouldInclude(const fs::path& file) const {
     const auto s = Utils::toUTF8(file.filename());
     if (!std::regex_search(s, config.includeFileRegex)) return false;
     if (std::regex_search(s, config.excludeFileRegex)) return false;
+    if (s == "WatchSnapshot.log") return false;
     return true;
 }
 
@@ -191,6 +205,8 @@ void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::p
 
 void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
+    uint64_t pollCount = 0;
+
     while (!stop.stop_requested()) {
 
         if (!isFirstPollDone()) {
@@ -215,6 +231,33 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
         resetWarmingUp();
 
 		markFirstPollDone();
+		++pollCount;
+
+        if (pollCount % 60 == 0 && spdlog::should_log(spdlog::level::debug)) {
+            struct FileDiag {
+                fs::path path;
+                uint64_t offset;
+            };
+
+            std::vector<FileDiag> diagnostics;
+            {
+                std::lock_guard lock(_mutex_);
+                diagnostics.reserve(files.size());
+                for (const auto& file : files) {
+                    const auto& fi = file.second;
+                    diagnostics.push_back({ fi.path, fi.state.offset });
+                }
+            }
+
+            for (const auto& file : diagnostics) {
+                uint64_t size = 0;
+                if (getRealFileSize(file.path, size)) {
+                    logger::debug("[Heartbeat:File] offset={} size={} | {}",
+                        file.offset, size, Utils::replaceUsername(Utils::toUTF8(file.path)));
+                }
+            }
+            logger::debug("[Heartbeat] poll={} files={}", pollCount, diagnostics.size());
+        }
 
         // Schedule notifications / mails
         if (!stop.stop_requested()) {
@@ -284,13 +327,15 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         fi.type = classify(fi.path);
 
         fi.state.writeTime = fs::last_write_time(p, ec);
-        fi.state.sizeLastSeen = fs::file_size(p, ec);
         fi.state.lastPoll = Clock::now();
 
-        if (ec) ec.clear();
-        std::error_code ec2;
-        const auto sz = fs::file_size(p, ec2);
-        fi.state.sizeLastSeen = ec2 ? 0 : sz;
+        uint64_t size = 0;
+        if (!getRealFileSize(p, size)) {
+            logger::debug("discoverFiles: cannot read size of {}", Utils::replaceUsername(canon));
+            continue;
+        }
+
+        fi.state.sizeLastSeen = size;
         fi.state.offset = start_from_end ? fi.state.sizeLastSeen : 0;
         fi.state.lineNo = 0;
 
@@ -329,8 +374,11 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         // I/O phase (unlocked)
         std::error_code ec;
         const bool exists = fs::exists(snap.path, ec);
-        const auto size = exists ? fs::file_size(snap.path, ec) : 0ull;
-        const auto wt = exists ? fs::last_write_time(snap.path, ec) : decltype(snap.state.writeTime){};
+
+        if (ec) {
+            logger::debug("scanOnce: cannot check {}: {}", Utils::replaceUsername(key), ec.message());
+            continue;
+        }
 
         // Erase locked if the file vanished
         if (!exists) {
@@ -339,6 +387,14 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
             if (it != files.end()) files.erase(it);
             continue;
         }
+
+        uint64_t size = 0;
+        if (!getRealFileSize(snap.path, size)) {
+            logger::debug("scanOnce: cannot read size of {}", Utils::replaceUsername(key));
+            continue;
+        }
+
+        const auto wt = fs::last_write_time(snap.path, ec);
 
         // Handle truncation/rotation in the snapshot
         if (size < snap.state.offset) {
@@ -349,8 +405,9 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         // Tail if there is new data
         bool tailed = false;
         if (size > snap.state.offset) {
-            tailFile(snap, stop);
-            tailed = true;
+            const auto oldOffset = snap.state.offset;
+            tailFile(snap, size, stop);
+            tailed = snap.state.offset > oldOffset;
         }
 
 		// Commit updated state back under lock
@@ -373,10 +430,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 }
 
 
-void Logwatch::LogWatcher::tailFile(FileInfo& fi, const std::stop_token& stop) {
-    std::error_code ec;
-    const auto size = fs::file_size(fi.path, ec);
-    if (ec || size <= fi.state.offset) return;
+void Logwatch::LogWatcher::tailFile(FileInfo& fi, const uint64_t& size, const std::stop_token& stop) {
+    if (size <= fi.state.offset) return;
 
     size_t chunkCap = KB2B(fi.type == LogType::Papyrus ? config.papyrusMaxChunkKB : config.maxChunkKB);
 
@@ -404,6 +459,9 @@ void Logwatch::LogWatcher::tailFile(FileInfo& fi, const std::stop_token& stop) {
     const auto offset = static_cast<size_t>(in.gcount());
     buf.resize(offset);
     fi.state.offset += offset;
+
+    logger::debug("[Tail] {} | read {} bytes, offset={}",
+        Utils::toUTF8(fi.path.filename()), offset, fi.state.offset);
 
     parseBufferAndEmit(fi, std::move(buf), stop);
 }

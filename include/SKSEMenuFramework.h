@@ -23,15 +23,6 @@ namespace SKSEMenuFramework {
     }
 
     namespace Model {
-
-        enum EventType {
-		    kNone = 0,
-		    kOpenMenu = 1,
-		    kCloseMenu = 2,
-		    kBeforeRender = 3,
-		    kAfterRender = 4
-	    };
-
         namespace Internal {
             template <class T>
             T GetFunction(LPCSTR name) {
@@ -49,12 +40,6 @@ namespace SKSEMenuFramework {
         typedef void(__stdcall* RenderFunction)();
         typedef bool(__stdcall* InputEventCallback)(RE::InputEvent*);
         typedef void(__stdcall* HudElementCallback)();
-
-        typedef void(__stdcall* EventCallback)(EventType eventType);
-        
-        using RegisterEventFuction = int64_t (*)(EventCallback callback, float priority);
-        using UnregisterEventFuction = void (*)(int64_t id);
-
         using ActionFunction = void (*)();
         using AddWindowFunction = Model::WindowInterface* (*)(RenderFunction);
         using AddSectionItemFunction = void (*)(const char* path, RenderFunction rendererFunction);
@@ -67,8 +52,6 @@ namespace SKSEMenuFramework {
         using IsAnyBlockingWindowOpenedFuction = bool (*)();
         using SetWindowsPauseGameFuction = void (*)(bool pause);
         using LoadTextureFuction = ImGuiMCP::ImTextureID (*)(const char* texturePath, ImGuiMCP::ImVec2* size);
-        using DisposeTextureFuction = void (*)(const char* texturePath);
-        using GetMenuFrameworkVersionFunction = float(*)();
 
         class InputEvent {
             uint64_t id;
@@ -82,24 +65,6 @@ namespace SKSEMenuFramework {
             }
             ~InputEvent() {
                 static auto func = Internal::GetFunction<UnregisterInputEventFuction>("UnregisterInputEvent");
-                if (func) {
-                    func(id);
-                }
-            }
-        };
-
-        class Event {
-            int64_t id;
-
-        public:
-            Event(EventCallback callback, float priority) {
-                static auto func = Internal::GetFunction<RegisterEventFuction>("RegisterEventPriority");
-                if (func) {
-                    id = func(callback, priority);
-                }
-            }
-            ~Event() {
-                static auto func = Internal::GetFunction<UnregisterEventFuction>("UnregisterEvent");
                 if (func) {
                     func(id);
                 }
@@ -151,25 +116,6 @@ namespace SKSEMenuFramework {
         return new Model::HudElement(callback);
     }
 
-    inline Model::Event* AddEvent(Model::EventCallback callback, float priority) {
-        return new Model::Event(callback, priority);
-    }
-
-    inline float GetMenuFrameworkVersion() {
-
-        if (!SKSEMenuFramework::IsInstalled()) {
-            return 0.0;
-        }
-
-        static auto func = Model::Internal::GetFunction<Model::GetMenuFrameworkVersionFunction>("GetMenuFrameworkVersion");
-
-        if (func) {
-            return func();
-        }
-
-        return 0.0;
-    }
-
     inline bool IsAnyBlockingWindowOpened() {
         static auto func =
             Model::Internal::GetFunction<Model::IsAnyBlockingWindowOpenedFuction>("IsAnyBlockingWindowOpened");
@@ -185,14 +131,6 @@ namespace SKSEMenuFramework {
             return func(texturePath.c_str(), &size);
         }
         return 0;
-    }
-
-    inline void DisposeTexture(std::string texturePath) {
-        static auto func = Model::Internal::GetFunction<Model::DisposeTextureFuction>("DisposeTexture");
-        if (func) {
-            return func(texturePath.c_str());
-        }
-        return;
     }
 
     inline void SetSection(std::string key) { Model::Internal::key = key; }
@@ -3978,19 +3916,15 @@ namespace ImGuiMCP {
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetWindowDpiScale"));
         return func();
     }
-    inline ImVec2 GetWindowPos() {
-        ImVec2 pOut;
+    inline void GetWindowPos(ImVec2* pOut) {
         using func_t = void (*)(ImVec2*);
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetWindowPos"));
-        func(&pOut);
-        return pOut;
+        return func(pOut);
     }
-    inline ImVec2 GetWindowSize() {
-        ImVec2 pOut;
+    inline void GetWindowSize(ImVec2* pOut) {
         using func_t = void (*)(ImVec2*);
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetWindowSize"));
-        func(&pOut);
-        return pOut;
+        return func(pOut);
     }
     inline float GetWindowWidth() {
         using func_t = float (*)();
@@ -4109,19 +4043,15 @@ namespace ImGuiMCP {
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetContentRegionMax"));
         return func(pOut);
     }
-    inline ImVec2 GetWindowContentRegionMin() {
+    inline void GetWindowContentRegionMin(ImVec2* pOut) {
         using func_t = void (*)(ImVec2*);
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetWindowContentRegionMin"));
-        ImVec2 pOut;
-        func(&pOut);
-        return pOut;
+        return func(pOut);
     }
-    inline ImVec2 GetWindowContentRegionMax() {
+    inline void GetWindowContentRegionMax(ImVec2* pOut) {
         using func_t = void (*)(ImVec2*);
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igGetWindowContentRegionMax"));
-        ImVec2 pOut;
-        func(&pOut);
-        return pOut;
+        return func(pOut);
     }
     inline float GetScrollX() {
         using func_t = float (*)();
@@ -4890,9 +4820,9 @@ namespace ImGuiMCP {
         return func(label, data_type, p_data, components, p_step, p_step_fast, format, flags);
     }
     inline bool ColorEdit3(const char* label, float col[3], ImGuiColorEditFlags flags = 0) {
-        using func_t = bool (*)(const char*, float[3], ImGuiColorEditFlags);
+        using func_t = bool (*)(const char*, float, ImGuiColorEditFlags);
         func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "igColorEdit3"));
-        return func(label, col, flags);
+        return func(label, col[3], flags);
     }
     inline bool ColorEdit4(const char* label, float col[4], ImGuiColorEditFlags flags = 0) {
         using func_t = bool (*)(const char*, float[4], ImGuiColorEditFlags);
@@ -11337,53 +11267,5 @@ namespace ImGuiMCP {
             func_t func = reinterpret_cast<func_t>(GetProcAddress(menuFramework, "ImVector_ImWchar_UnInit"));
             return func(p);
         }
-    }
-}
-
-namespace ImGuiMCPComponents {
-    inline bool ToggleButton(const char* label, bool* v) {
-        ImGuiMCP::ImVec2 p;
-        ImGuiMCP::GetCursorScreenPos(&p);
-        ImGuiMCP::ImDrawList* draw_list = ImGuiMCP::GetWindowDrawList();
-        float height = ImGuiMCP::GetFrameHeight();
-        float width = height * 1.8f;
-        float radius = height * 0.5f;
-
-        ImGuiMCP::PushID(label);
-
-        ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Header, ImGuiMCP::ImVec4(0, 0, 0, 0));
-        ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_HeaderHovered, ImGuiMCP::ImVec4(0, 0, 0, 0));
-        ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_HeaderActive, ImGuiMCP::ImVec4(0, 0, 0, 0));
-
-        bool clicked = ImGuiMCP::Selectable(std::format("##toggle-{}", label).c_str(), false, 0, ImGuiMCP::ImVec2(width, height));
-
-        ImGuiMCP::PopStyleColor(3);
-        ImGuiMCP::PopID();
-
-        if (clicked) {
-            *v = !*v;
-        }
-
-        ImGuiMCP::ImVec2 p_min = ImGuiMCP::ImVec2(p.x, p.y);
-        ImGuiMCP::ImVec2 p_max = ImGuiMCP::ImVec2(p.x + width, p.y + height);
-
-        float t = *v ? 1.0f : 0.0f;
-
-        ImGuiMCP::ImU32 col_bg = *v ? IM_COL32(0, 160, 0, 255) : IM_COL32(160, 0, 0, 255);
-
-        ImGuiMCP::ImDrawListManager::AddRectFilled(draw_list, p_min, p_max, col_bg, height * 0.5f, 0);
-        ImGuiMCP::ImDrawListManager::AddCircleFilled(draw_list, ImGuiMCP::ImVec2(p.x + radius + t * (width - radius * 2.0f), p.y + radius), radius - 1.5f, IM_COL32(255, 255, 255, 255), 32);
-
-        ImGuiMCP::SameLine();
-
-        std::string displayLabel = label;
-        size_t pos = displayLabel.find("##");
-        if (pos != std::string::npos) {
-            ImGuiMCP::Text("%.*s", (int)pos, displayLabel.c_str());
-        } else {
-            ImGuiMCP::Text("%s", label);
-        }
-
-        return clicked;
     }
 }
