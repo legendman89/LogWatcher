@@ -24,6 +24,15 @@ static bool getRealFileSize(const std::filesystem::path& p, uint64_t& size) {
 
 Logwatch::LogWatcher Logwatch::watcher;
 
+void Logwatch::LogWatcher::resetMod(const std::string& modKey) {
+	std::lock_guard lock(_watch_state_mutex_);
+	aggr.resetStats(modKey);
+	periodicLastPerMod.erase(modKey);
+	pinnedState.erase(modKey);
+	saveWatchIfChanged(aggr.snapshot());
+	logger::info("Reset watch counters and cached lines for {}", modKey);
+}
+
 std::string Logwatch::LogWatcher::watchSnapshotPath(const std::string& ext) const {
     const auto root = fs::path(REL::Module::get().filename()).parent_path();
 	const std::string fileName = "WatchSnapshot." + ext;
@@ -261,6 +270,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
         // Schedule notifications / mails
         if (!stop.stop_requested()) {
+			std::lock_guard lock(_watch_state_mutex_);
             const auto snap = aggr.snapshot();
 			saveWatchIfChanged(snap);
             mayNotifyPinnedAlerts(snap);

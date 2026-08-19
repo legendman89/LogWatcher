@@ -15,6 +15,7 @@
 
   "Watch.Table.Header.Mod": "Mod",
   "Watch.Table.Header.Pinned": "Pinned",
+  "Watch.Table.Header.Reset": "Reset",
   "Watch.Table.Header.Errors": "Errors",
   "Watch.Table.Header.Warnings": "Warnings",
   "Watch.Table.Header.Fails": "Fails",
@@ -23,6 +24,10 @@
   "Watch.Table.Tooltip.ModDetails": "Click to view details.",
   "Watch.Table.Tooltip.Pin": "Pin",
   "Watch.Table.Tooltip.Unpin": "Unpin",
+  "Watch.Table.Tooltip.Reset": "Reset counters and cached lines",
+  "Watch.Table.Reset.Confirm": "Reset all counters and cached lines for:",
+  "Watch.Table.Reset.Button": "Reset",
+  "Watch.Table.Reset.Cancel": "Cancel",
 
   "Watch.Details.Title": "Mod Details",
   "Watch.Details.Empty": "No mod selected.",

@@ -4,7 +4,53 @@
 #include "helper.hpp"
 #include "loading.hpp"
 #include "aggregator.hpp"
+#include "watcher.hpp"
 #include "translate.hpp"
+
+bool Live::ConfirmReset(const std::string& mod) {
+	bool reset = false;
+	if (ImGui::BeginPopup("##confirm_reset")) {
+		ImGui::TextUnformatted(Trans::Tr("Watch.Table.Reset.Confirm").c_str());
+		ImGui::TextColored(Colors::BlueGrayHeaderTxt, "%s", mod.c_str());
+		ImGui::Separator();
+		if (ImGui::Button(Trans::Tr("Watch.Table.Reset.Button").c_str())) {
+			Logwatch::watcher.resetMod(mod);
+			reset = true;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(Trans::Tr("Watch.Table.Reset.Cancel").c_str())) ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+	}
+	return reset;
+}
+
+bool Live::ResetButton(const std::string& mod) {
+	if (ImGui::Button(Trans::Tr("Watch.Table.Reset.Button").c_str())) ImGui::OpenPopup("##confirm_reset");
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip(Trans::Tr("Watch.Table.Tooltip.Reset").c_str());
+	return ConfirmReset(mod);
+}
+
+void Live::ResetStyle(TableRow& r) {
+	constexpr unsigned ARROW_ROTATE_LEFT = 0xF0E2;
+	static const std::string resetText = FontAwesome::UnicodeToUtf8(ARROW_ROTATE_LEFT);
+	FontAwesome::PushSolid();
+	ImGui::PushStyleColor(ImGuiCol_Text, Colors::DimGray);
+	NoButtonBorder(true);
+	const bool clicked = ImGui::SmallButton((resetText + "##reset").c_str());
+	NoButtonBorder(false);
+	ImGui::PopStyleColor();
+	FontAwesome::Pop();
+	if (clicked) ImGui::OpenPopup("##confirm_reset");
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip(Trans::Tr("Watch.Table.Tooltip.Reset").c_str());
+
+	if (!ConfirmReset(r.mod)) return;
+	r.errors = 0;
+	r.warnings = 0;
+	r.fails = 0;
+	r.others = 0;
+	r.recent = 0;
+}
 
 void Live::addTableControls(PanelState& ps) {
 	ImGui::PushItemWidth(280.0f);
@@ -49,6 +95,7 @@ void Live::sortTable(PanelState& ps, std::vector<int>& view, const std::vector<T
 		case Column::Others:   res = (A.others < B.others) ? -1 : (A.others > B.others ? 1 : 0); break;
 		case Column::Recent:   res = (A.recent < B.recent) ? -1 : (A.recent > B.recent ? 1 : 0); break;
 		case Column::Pinned:   res = (A.pinned < B.pinned) ? -1 : (A.pinned > B.pinned ? 1 : 0); break;
+		case Column::Reset:    res = 0; break;
 		case Column::Count:    default: res = 0; break;
 		}
 		return ps.sortAsc ? (res < 0) : (res > 0);
@@ -116,6 +163,12 @@ void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vec
 		ImGui::TableNextColumn();
 		ImGui::PushID(r.mod.c_str());
 		PinStyle(r);
+		ImGui::PopID();
+
+		// Reset
+		ImGui::TableNextColumn();
+		ImGui::PushID(r.mod.c_str());
+		ResetStyle(r);
 		ImGui::PopID();
 
 	}

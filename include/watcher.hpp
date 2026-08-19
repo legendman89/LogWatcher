@@ -53,6 +53,7 @@ namespace Logwatch {
 
         // For locks. Mutable for the same reason as the aggregator.
         mutable std::mutex _mutex_;
+		std::mutex _watch_state_mutex_;
 
         // Sleep/wakeup for the worker
         std::mutex                  _wake_mutex_;
@@ -155,6 +156,7 @@ namespace Logwatch {
         ~LogWatcher() { stop(); }
 
         void startLogWatcher();
+		void resetMod(const std::string& modKey);
 
         void addLogDirectories();
 
@@ -259,6 +261,7 @@ namespace Logwatch {
         }
 
         inline void resetNotifications() {
+			std::lock_guard lock(_watch_state_mutex_);
             periodicReady = false;
             periodicLastPerMod.clear();
             periodicLastTotals = {};

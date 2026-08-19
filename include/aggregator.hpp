@@ -102,6 +102,13 @@ namespace Logwatch {
 			mods.erase(modKey);
 		}
 
+		inline void resetStats(const std::string& modKey) {
+			std::unique_lock lock(_mutex_);
+			const auto it = mods.find(modKey);
+			if (it == mods.end()) return;
+			it->second = ModStats{};
+		}
+
 		inline void setCapacity(const size_t& n) {
 			std::unique_lock lock(_mutex_);
 			cap.store(n, std::memory_order_relaxed);

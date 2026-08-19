@@ -108,6 +108,7 @@ void Live::LogWatcherUI::DrawTable(
 		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Others").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
 		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Recent").c_str(), ImGuiTableColumnFlags_PreferSortDescending, 45.0f);
 		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Pinned").c_str(), ImGuiTableColumnFlags_None, 35.0f);
+		ImGui::TableSetupColumn(Trans::Tr("Watch.Table.Header.Reset").c_str(), ImGuiTableColumnFlags_NoSort, 35.0f);
 
 
 		ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, Colors::SteelHeaderBG);
@@ -170,6 +171,8 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	ImGui::Checkbox(Trans::Tr("Watch.Details.AutoScroll").c_str(), &ds.autoScroll);
 	ImGui::SameLine(0.0f, 12.0f);
 	ImGui::Checkbox(Trans::Tr("Watch.Details.Opaque").c_str(), &ds.opaque);
+	ImGui::SameLine(0.0f, 12.0f);
+	ResetButton(modName);
 	ImGui::SameLine(0.0f, 12.0f);
 
 	// Multi-select for levels

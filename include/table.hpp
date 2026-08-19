@@ -17,7 +17,8 @@ namespace Live {
     COL(Fails) \
     COL(Others) \
     COL(Recent) \
-    COL(Pinned)
+    COL(Pinned) \
+    COL(Reset)
 
 #define COL2ENUM(NAME) NAME,
 
@@ -77,6 +78,11 @@ namespace Live {
         }
     }
 
+    void ResetStyle(TableRow& r);
+
+    bool ResetButton(const std::string& mod);
+
+    bool ConfirmReset(const std::string& mod);
     void addTableControls(PanelState& ps);
 
     void takeSnapshot(std::vector<TableRow>& rows);
