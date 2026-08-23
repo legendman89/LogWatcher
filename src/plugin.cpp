@@ -19,8 +19,8 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     case SKSE::MessagingInterface::kPostLoad:
     {
         logger::info("SKSE finished loading; initiating watcher");
-		auto& st = Logwatch::GetSettings(); // load defaults first
-		Logwatch::settingsPersister.loadState(); // then load persisted settings
+		Logwatch::settingsPersister.loadState();
+		const auto st = Logwatch::ReadSettings();
         Logwatch::watcher.configurator().loadFromSettings(st);
         const auto& config = Logwatch::watcher.configurator();
         Logwatch::aggr.setCapacity(config.cacheCap);
@@ -38,12 +38,14 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     case SKSE::MessagingInterface::kPreLoadGame:
     {
         Logwatch::watcher.setGameReady(false);
+        Logwatch::watcher.resetNotifications();
         break;
     }
     case SKSE::MessagingInterface::kPostLoadGame:
     case SKSE::MessagingInterface::kNewGame:
     {
-        const auto delay = Logwatch::GetSettings().HUDPostLoadDelaySec;
+        Logwatch::watcher.resetNotifications();
+        const auto delay = Logwatch::ReadSettings().HUDPostLoadDelaySec;
         logger::info("Loading game detected, delaying notifications by {}", delay);
         Logwatch::watcher.setGameReady(true);
         Logwatch::watcher.setHUDStartDelay(delay);

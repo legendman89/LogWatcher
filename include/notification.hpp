@@ -14,7 +14,7 @@ namespace Logwatch {
         uint64_t others = 0;
     };
 
-    struct PinnedSnapshot {
+    struct PinnedAlertState {
         Counts counts;
         Clock::time_point lastAlertAt{};
     };
@@ -29,8 +29,11 @@ namespace Logwatch {
     struct HUDOverlay {
         HUDMessage current;
         Clock::time_point t0{};
-        Clock::time_point nextAt{};  
+        Clock::time_point nextAt{};
+        Clock::time_point pausedAt{};
+        uint64_t notificationGeneration{ 0 };
         bool active{ false };
+        bool paused{ false };
     };
 
     inline void decayHUDAlpha(float& alpha, const float& age, const float& STAY_ON, const float& FADE_OUT) {

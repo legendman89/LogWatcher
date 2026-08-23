@@ -79,8 +79,11 @@ namespace Logwatch {
         std::unordered_map<std::string, Counts> periodicLastPerMod;
         
         // Pinned alerts.
-        std::unordered_map<std::string, PinnedSnapshot> pinnedState;
+        std::unordered_map<std::string, PinnedAlertState> pinnedState;
         std::deque<HUDMessage> hudMessages;
+        std::atomic<uint64_t> notificationGeneration{ 0 };
+
+        static constexpr size_t HUD_MESSAGE_CAP{ 100 };
 
         // Mail.
         MailBox mailbox;
@@ -88,10 +91,10 @@ namespace Logwatch {
         // For saving watch.
         size_t lastWatchHash{ 0 };
 
-        size_t hashWatchSnapshot(const Snapshot& snap) const;
-		void getSortedSnapshot(std::vector<std::pair<std::string, Counts>>& out, const Snapshot& snap) const;
-        void saveWatchIfChanged(const Snapshot& snap);
-        std::string watchSnapshotPath(const std::string& ext) const;
+        size_t hashWatchStats(const ModStatsMap& statsByMod) const;
+		void buildSortedWatchCounts(std::vector<std::pair<std::string, Counts>>& out, const ModStatsMap& statsByMod) const;
+        void saveWatchIfChanged(const ModStatsMap& statsByMod);
+        std::string watchReportPath(const std::string& ext) const;
         std::string watchTimeStamp() const;
 
         // Worker body.
@@ -110,13 +113,15 @@ namespace Logwatch {
         void emitIfMatch(const fs::path& file, const std::string_view& line, const uint64_t& lineNo);
 
         // Notification functions
-        void updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval);
-        void mayNotifyPinnedAlerts(const Snapshot& snap);
-        void mayNorifyPeriodicAlerts(const Snapshot& snap);
+        void updatePeriodicBase(const ModStatsMap& statsByMod, const Clock::time_point& now, const int& interval);
+        void mayNotifyPinnedAlerts(const ModStatsMap& statsByMod);
+        void mayNorifyPeriodicAlerts(const ModStatsMap& statsByMod);
 
         inline void scheduleNotification(HUDMessage&& m) {
             std::lock_guard lock(_mutex_);
             hudMessages.push_back(std::move(m));
+            if (hudMessages.size() > HUD_MESSAGE_CAP)
+                hudMessages.pop_front();
         }
 
         inline void scheduleMail(MailEntry&& e) {
@@ -138,7 +143,7 @@ namespace Logwatch {
         }
 
         inline void updatePinnedBase(const std::string& modKey, const Counts& curr, const Clock::time_point& now) {
-            PinnedSnapshot ps;
+            PinnedAlertState ps;
             ps.counts = curr;
             ps.lastAlertAt = now;
             pinnedState[modKey] = ps;
@@ -162,11 +167,21 @@ namespace Logwatch {
 
         void addIfExists(const fs::path& p);
 
-        inline bool isHUDQueueEmpty() const noexcept { return hudMessages.empty(); }
-
-        inline void popHUDMessage(HUDMessage& hudMessage) {
+        inline bool tryPopHUDMessage(HUDMessage& hudMessage) {
+            std::lock_guard lock(_mutex_);
+            if (hudMessages.empty()) return false;
             hudMessage = std::move(hudMessages.front());
             hudMessages.pop_front();
+            return true;
+        }
+
+        inline void clearHUDMessages() {
+            std::lock_guard lock(_mutex_);
+            hudMessages.clear();
+        }
+
+        inline uint64_t getNotificationGeneration() const noexcept {
+            return notificationGeneration.load(std::memory_order_relaxed);
         }
 
         inline void setHUDStartDelay(const size_t& delay) noexcept { 
@@ -261,14 +276,18 @@ namespace Logwatch {
         }
 
         inline void resetNotifications() {
-			std::lock_guard lock(_watch_state_mutex_);
+            std::lock_guard watchStateLock(_watch_state_mutex_);
             periodicReady = false;
             periodicLastPerMod.clear();
             periodicLastTotals = {};
             pinnedState.clear();
+
+            std::lock_guard queueLock(_mutex_);
+            hudMessages.clear();
+            notificationGeneration.fetch_add(1, std::memory_order_relaxed);
         }
 
-        std::vector<Logwatch::MailEntry> snapshotMailbox() const {
+        std::vector<Logwatch::MailEntry> copyMailbox() const {
             std::lock_guard lock(_mutex_);
             std::vector<MailEntry> out;
             out.reserve(mailbox.q.size());

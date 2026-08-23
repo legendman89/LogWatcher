@@ -5,9 +5,9 @@
 #include "notification.hpp"
 #include "translate.hpp"
 
-void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
+void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
 {
-    const auto& st = Logwatch::GetSettings();
+    const auto st = Logwatch::ReadSettings();
 
     if (!st.notificationsEnabled || !st.pinnedAlertsEnabled) return;
 
@@ -19,7 +19,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const Snapshot& snap)
     const int minIssues = (st.pinnedMinNewIssues > 0) ? st.pinnedMinNewIssues : 1;
     const int cooldownSec = (st.pinnedAlertCooldownSec > 0) ? st.pinnedAlertCooldownSec : 60;
 
-    for (const auto& [modKey, s] : snap) {
+    for (const auto& [modKey, s] : statsByMod) {
 
         if (!Logwatch::aggr.isPinned(modKey))
             continue;

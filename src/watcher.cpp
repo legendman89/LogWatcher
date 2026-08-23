@@ -29,13 +29,13 @@ void Logwatch::LogWatcher::resetMod(const std::string& modKey) {
 	aggr.resetStats(modKey);
 	periodicLastPerMod.erase(modKey);
 	pinnedState.erase(modKey);
-	saveWatchIfChanged(aggr.snapshot());
+	saveWatchIfChanged(aggr.copyStats());
 	logger::info("Reset watch counters and cached lines for {}", modKey);
 }
 
-std::string Logwatch::LogWatcher::watchSnapshotPath(const std::string& ext) const {
+std::string Logwatch::LogWatcher::watchReportPath(const std::string& ext) const {
     const auto root = fs::path(REL::Module::get().filename()).parent_path();
-	const std::string fileName = "WatchSnapshot." + ext;
+	const std::string fileName = "WatchReport." + ext;
     return (root / "Data" / "SKSE" / "Plugins" / PRODUCT_NAME / "Watch" / fileName).string();
 }
 
@@ -55,9 +55,9 @@ std::string Logwatch::LogWatcher::watchTimeStamp() const {
     return out.str();
 }
 
-void Logwatch::LogWatcher::getSortedSnapshot(std::vector<std::pair<std::string, Counts>>& sorted, const Snapshot& snap) const {
-    sorted.reserve(snap.size());
-    for (const auto& [modKey, s] : snap) {
+void Logwatch::LogWatcher::buildSortedWatchCounts(std::vector<std::pair<std::string, Counts>>& sorted, const ModStatsMap& statsByMod) const {
+    sorted.reserve(statsByMod.size());
+    for (const auto& [modKey, s] : statsByMod) {
         Counts c;
         c.errors = s.errors;
         c.warnings = s.warnings;
@@ -71,9 +71,9 @@ void Logwatch::LogWatcher::getSortedSnapshot(std::vector<std::pair<std::string, 
         });
 }
 
-size_t Logwatch::LogWatcher::hashWatchSnapshot(const Snapshot& snap) const {
-    std::vector<std::pair<std::string, Counts>> sortedSnap;
-	getSortedSnapshot(sortedSnap, snap);
+size_t Logwatch::LogWatcher::hashWatchStats(const ModStatsMap& statsByMod) const {
+    std::vector<std::pair<std::string, Counts>> sortedStats;
+	buildSortedWatchCounts(sortedStats, statsByMod);
 
 	// Same as FNV-1a, but we mix in counts for each mod.
     constexpr uint64_t FNV_OFFSET = 1469598103934665603ull;
@@ -81,7 +81,7 @@ size_t Logwatch::LogWatcher::hashWatchSnapshot(const Snapshot& snap) const {
 
     uint64_t h = FNV_OFFSET;
 
-    for (const auto& [mod, s] : snap) {
+    for (const auto& [mod, s] : statsByMod) {
 
         uint64_t he = FNV_OFFSET;
         for (unsigned char c : mod) {
@@ -103,9 +103,9 @@ size_t Logwatch::LogWatcher::hashWatchSnapshot(const Snapshot& snap) const {
     return size_t(h);
 }
 
-inline void writeWatchToFile(std::ofstream& to, const std::string& ts, const std::vector<std::pair<std::string, Logwatch::Counts>>& sortedSnap) {
-    to << "-----[ Watch Snapshot @ " << ts << " ]--------------\n";
-    for (const auto& [mod, c] : sortedSnap) {
+inline void writeWatchToFile(std::ofstream& to, const std::string& ts, const std::vector<std::pair<std::string, Logwatch::Counts>>& sortedStats) {
+    to << "-----[ Watch Report @ " << ts << " ]--------------\n";
+    for (const auto& [mod, c] : sortedStats) {
         to << mod
             << ", " << c.errors << " errors"
             << ", " << c.warnings << " warnings"
@@ -117,20 +117,20 @@ inline void writeWatchToFile(std::ofstream& to, const std::string& ts, const std
     to.flush();
 }
 
-void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
+void Logwatch::LogWatcher::saveWatchIfChanged(const ModStatsMap& statsByMod) {
     if (!config.saveWatch) return;
 
-    const size_t currentHash = hashWatchSnapshot(snap);
+    const size_t currentHash = hashWatchStats(statsByMod);
     if (currentHash == lastWatchHash) return;
     lastWatchHash = currentHash;
-    logger::debug("[Snapshot] Saving WatchSnapshot for {} tracked mods", snap.size());
+    logger::debug("[Watch] Saving watch report for {} tracked mods", statsByMod.size());
 
-    const auto outPath = watchSnapshotPath("log");
-    const auto csvPath = watchSnapshotPath("csv");
+    const auto outPath = watchReportPath("log");
+    const auto csvPath = watchReportPath("csv");
     fs::create_directories(fs::path(outPath).parent_path());
 
-    std::vector<std::pair<std::string, Counts>> sortedSnap;
-    getSortedSnapshot(sortedSnap, snap);
+    std::vector<std::pair<std::string, Counts>> sortedStats;
+    buildSortedWatchCounts(sortedStats, statsByMod);
 
     const std::string ts = watchTimeStamp();
 
@@ -146,8 +146,8 @@ void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
             return;
         }
 
-		writeWatchToFile(out, ts, sortedSnap);
-		writeWatchToFile(csv, ts, sortedSnap);
+		writeWatchToFile(out, ts, sortedStats);
+		writeWatchToFile(csv, ts, sortedStats);
     }
     catch (const std::exception& e) {
         logger::error("saveWatchIfChanged failed due to {}", e.what());
@@ -169,9 +169,10 @@ Logwatch::LogType Logwatch::classify(const std::filesystem::path& p) {
 
 bool Logwatch::LogWatcher::shouldInclude(const fs::path& file) const {
     const auto s = Utils::toUTF8(file.filename());
+    const auto parent = file.parent_path();
+    if (parent.filename() == "Watch" && parent.parent_path().filename() == PRODUCT_NAME) return false;
     if (!std::regex_search(s, config.includeFileRegex)) return false;
     if (std::regex_search(s, config.excludeFileRegex)) return false;
-    if (s == "WatchSnapshot.log") return false;
     return true;
 }
 
@@ -271,10 +272,10 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
         // Schedule notifications / mails
         if (!stop.stop_requested()) {
 			std::lock_guard lock(_watch_state_mutex_);
-            const auto snap = aggr.snapshot();
-			saveWatchIfChanged(snap);
-            mayNotifyPinnedAlerts(snap);
-            mayNorifyPeriodicAlerts(snap);
+			const auto statsByMod = aggr.copyStats();
+			saveWatchIfChanged(statsByMod);
+            mayNotifyPinnedAlerts(statsByMod);
+            mayNorifyPeriodicAlerts(statsByMod);
         }
 
 		// Handle auto-stop after first poll
@@ -372,18 +373,18 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
     for (const auto& key : keys) {
         if (stop.stop_requested()) return;
 
-		// get state snapshot under lock
-        FileInfo snap;
+		// Copy the file state under lock for the unlocked I/O phase.
+		FileInfo workingFile;
         {
             std::lock_guard lock(_mutex_);
             auto it = files.find(key);
             if (it == files.end()) continue;
-			snap = it->second; 
+			workingFile = it->second;
         }
 
         // I/O phase (unlocked)
         std::error_code ec;
-        const bool exists = fs::exists(snap.path, ec);
+        const bool exists = fs::exists(workingFile.path, ec);
 
         if (ec) {
             logger::debug("scanOnce: cannot check {}: {}", Utils::replaceUsername(key), ec.message());
@@ -399,25 +400,25 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         }
 
         uint64_t size = 0;
-        if (!getRealFileSize(snap.path, size)) {
+        if (!getRealFileSize(workingFile.path, size)) {
             logger::debug("scanOnce: cannot read size of {}", Utils::replaceUsername(key));
             continue;
         }
 
-        const auto wt = fs::last_write_time(snap.path, ec);
+        const auto wt = fs::last_write_time(workingFile.path, ec);
 
-        // Handle truncation/rotation in the snapshot
-        if (size < snap.state.offset) {
-            snap.state.offset = 0;
-            snap.state.lineNo = 0;
+        // Handle truncation/rotation in the working copy.
+        if (size < workingFile.state.offset) {
+            workingFile.state.offset = 0;
+            workingFile.state.lineNo = 0;
         }
 
         // Tail if there is new data
         bool tailed = false;
-        if (size > snap.state.offset) {
-            const auto oldOffset = snap.state.offset;
-            tailFile(snap, size, stop);
-            tailed = snap.state.offset > oldOffset;
+        if (size > workingFile.state.offset) {
+            const auto oldOffset = workingFile.state.offset;
+            tailFile(workingFile, size, stop);
+            tailed = workingFile.state.offset > oldOffset;
         }
 
 		// Commit updated state back under lock
@@ -432,8 +433,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
             fi.state.sizeLastSeen = size;
             fi.state.writeTime = wt;
             if (tailed) {
-                fi.state.offset = snap.state.offset;
-                fi.state.lineNo = snap.state.lineNo;
+                fi.state.offset = workingFile.state.offset;
+                fi.state.lineNo = workingFile.state.lineNo;
             }
         }
     }

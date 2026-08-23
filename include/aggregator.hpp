@@ -15,7 +15,7 @@ namespace Logwatch {
 	private:
 
 		// For bookkeeping; backup is needed when we switch to deep scan.
-		Snapshot mods, backup;
+		ModStatsMap mods, backup;
 		std::unordered_set<std::string> pinned;
 
 		// To remind myself, I added mutable to allow unlocking in constant functions.
@@ -81,15 +81,15 @@ namespace Logwatch {
 			pinned.clear();
 		}
 
-		inline Snapshot snapshot() const {
+		inline ModStatsMap copyStats() const {
 			std::shared_lock lock(_mutex_);
-			Snapshot out;
+			ModStatsMap out;
 			out.reserve(mods.size()); // avoids rehashing
 			for (const auto& m : mods) out.emplace(m.first, m.second);
 			return out;
 		}
 
-		inline std::unordered_set<std::string> snapshotPins() const {
+		inline std::unordered_set<std::string> copyPins() const {
 			std::shared_lock lock(_mutex_);
 			std::unordered_set<std::string> pins;
 			pins.reserve(pinned.size()); // avoids rehashing

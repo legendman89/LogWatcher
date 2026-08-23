@@ -5,9 +5,18 @@
 #include "settings_json.hpp"
 #include "restart.hpp"
 
+Logwatch::LogWatcherSettings Logwatch::SettingsStore::read() const {
+	std::lock_guard lock(_mutex_);
+	return settings;
+}
+
+void Logwatch::SettingsStore::replace(const LogWatcherSettings& replacement) {
+	std::lock_guard lock(_mutex_);
+	settings = replacement;
+}
+
 void Logwatch::loadDefaults(const LogWatcherSettings& factory) {
-	auto& st = GetSettings();
-    st = factory;
+	SetSettings(factory);
 	logger::info("Settings reset to defaults");
 }
 
@@ -19,7 +28,7 @@ bool Logwatch::restartRequired(const LogWatcherSettings& curr, const Config& pre
 }
 
 void Logwatch::applyNow() {
-    auto& st = GetSettings();
+    const auto st = ReadSettings();
     auto& config = watcher.configurator();
 	const auto prev_config = config; // copy for comparison
 

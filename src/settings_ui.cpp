@@ -7,9 +7,9 @@
 void Live::LogWatcherUI::RenderSettings()
 {
 	const auto rs = Logwatch::watcher.getRunState();
-	auto& st = Logwatch::GetSettings();
 
 	static bool settings_init = false;
+	static Logwatch::LogWatcherSettings st = Logwatch::ReadSettings();
 	static Logwatch::LogWatcherSettings prev_settings{};
 	static const Logwatch::LogWatcherSettings factory{};
 	if (!settings_init) { prev_settings = st; settings_init = true; }
@@ -120,7 +120,11 @@ void Live::LogWatcherUI::RenderSettings()
 		if (ImGui::CollapsingHeader(Trans::Tr("Settings.Notifications.Header").c_str(), 0)) {
 			ImGui::Dummy(ImVec2(0, 4));
 
-			ImGui::Checkbox(Trans::Tr("Settings.Notifications.Enabled.Label").c_str(), &st.notificationsEnabled);
+			if (ImGui::Checkbox(Trans::Tr("Settings.Notifications.Enabled.Label").c_str(), &st.notificationsEnabled)) {
+				Logwatch::SetSettings(st);
+				if (!st.notificationsEnabled)
+					Logwatch::watcher.resetNotifications();
+			}
 			HelpMarker(Trans::Tr("Settings.Notifications.Enabled.Tooltip").c_str());
 
 			ImGui::SliderInt(Trans::Tr("Settings.Notifications.HUDFontScale.Label").c_str(), &st.HUDFontScale, 50, 200);
@@ -221,11 +225,13 @@ void Live::LogWatcherUI::RenderSettings()
 
 		if (Live::CTAButton(Trans::Tr("Settings.Apply.SaveAndApply.Label").c_str(), canApply)) {
 			busyState = BusyState::Working;
+			Logwatch::SetSettings(st);
 			Logwatch::applyNow();
 		}
 		ImGui::SameLine(0.0f, 6.0f);
 		if (Live::CTAButton(Trans::Tr("Settings.Apply.LoadDefaults.Label").c_str(), canDefaults)) {
 			busyState = BusyState::Working;
+			st = factory;
 			Logwatch::loadDefaults(factory);
 			Logwatch::applyNow();
 		}
@@ -268,6 +274,7 @@ void Live::LogWatcherUI::RenderSettings()
 		}
 
 	}
+	Logwatch::SetSettings(st);
 	ImGui::EndChild();
 	ImGui::PopStyleVar(pushes);
 	ImGui::PopStyleColor();

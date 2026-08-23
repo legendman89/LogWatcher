@@ -85,7 +85,7 @@ namespace Live {
     bool ConfirmReset(const std::string& mod);
     void addTableControls(PanelState& ps);
 
-    void takeSnapshot(std::vector<TableRow>& rows);
+    void buildTableRows(std::vector<TableRow>& rows);
 
     void filterTable(PanelState& ps, std::vector<int>& view, const std::vector<TableRow>& rows);
 

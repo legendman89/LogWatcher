@@ -11,11 +11,11 @@
 #include "restart.hpp"
 #include "loading.hpp"
 
-void Live::takeSnapshot(std::vector<TableRow>& rows) {
-	const auto snapMods = Logwatch::aggr.snapshot(); 
-	const auto snapPins = Logwatch::aggr.snapshotPins();
-	rows.reserve(snapMods.size());
-	for (auto& [modKey, s] : snapMods) {
+void Live::buildTableRows(std::vector<TableRow>& rows) {
+	const auto statsByMod = Logwatch::aggr.copyStats();
+	const auto pinnedMods = Logwatch::aggr.copyPins();
+	rows.reserve(statsByMod.size());
+	for (auto& [modKey, s] : statsByMod) {
 		TableRow r;
 		r.mod = modKey;
 		r.errors = s.errors;
@@ -23,7 +23,7 @@ void Live::takeSnapshot(std::vector<TableRow>& rows) {
 		r.fails = s.fails;
 		r.others = s.others;
 		r.recent = (int)s.last.size();
-		r.pinned = snapPins.count(modKey) != 0;
+		r.pinned = pinnedMods.count(modKey) != 0;
 		rows.push_back(std::move(r));
 	}
 }
@@ -55,9 +55,9 @@ void Live::LogWatcherUI::RenderWatch() {
 	// controls
 	addTableControls(ps);
 
-	// get aggregator snapshot
+	// Build table rows from a consistent copy of the aggregator state.
 	std::vector<TableRow> rows;
-	takeSnapshot(rows);
+	buildTableRows(rows);
 	
 	// new view
 	std::vector<int> view;
@@ -186,10 +186,10 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 
 	ImGui::Dummy(ImVec2(0, 5));
 
-	// Snapshot summary + recent cached
-	const auto snap = Logwatch::aggr.snapshot();
-	const auto it = snap.find(modName);
-	if (it == snap.end()) {
+	// Copied statistics summary and recent cached entries.
+	const auto statsByMod = Logwatch::aggr.copyStats();
+	const auto it = statsByMod.find(modName);
+	if (it == statsByMod.end()) {
 		ImGui::TextDisabled(Trans::Tr("Watch.Details.NoData").c_str());
 		ImGui::End();
 		if (pushedWinBg) ImGui::PopStyleColor();
@@ -232,7 +232,7 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 
 void Live::LogWatcherUI::RenderMailbox()
 {
-	auto entries = Logwatch::watcher.snapshotMailbox();
+	auto entries = Logwatch::watcher.copyMailbox();
 	static int selected = -1;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1400, 900));
@@ -442,8 +442,38 @@ void Live::LogWatcherUI::DrawHUDText(
 
 void Live::LogWatcherUI::RenderHUDOverlay()
 {
-	if (SKSEMenuFramework::IsAnyBlockingWindowOpened())
+	static Logwatch::HUDOverlay hudOverlay{};
+	const uint64_t notificationGeneration = Logwatch::watcher.getNotificationGeneration();
+	if (hudOverlay.notificationGeneration != notificationGeneration) {
+		hudOverlay = {};
+		hudOverlay.notificationGeneration = notificationGeneration;
+	}
+
+	const auto now = Clock::now();
+	const auto st = Logwatch::ReadSettings();
+	if (!st.notificationsEnabled) {
+		Logwatch::watcher.clearHUDMessages();
+		hudOverlay = {};
+		hudOverlay.notificationGeneration = notificationGeneration;
 		return;
+	}
+
+	if (SKSEMenuFramework::IsAnyBlockingWindowOpened()) {
+		if (!hudOverlay.paused) {
+			hudOverlay.pausedAt = now;
+			hudOverlay.paused = true;
+		}
+		return;
+	}
+
+	if (hudOverlay.paused) {
+		const auto pausedFor = now - hudOverlay.pausedAt;
+		if (hudOverlay.active)
+			hudOverlay.t0 += pausedFor;
+		if (hudOverlay.nextAt.time_since_epoch().count() != 0)
+			hudOverlay.nextAt += pausedFor;
+		hudOverlay.paused = false;
+	}
 
 	if (!Logwatch::watcher.isGameReady())
 		return;
@@ -451,17 +481,11 @@ void Live::LogWatcherUI::RenderHUDOverlay()
 	if (!Logwatch::watcher.isHUDTimeReady())
 		return;
 
-	const auto now = Clock::now();
-
 	ImDrawList* drawList = ImGui::GetForegroundDrawList();
 	ImVec2 screen = ImGui::GetIO()->DisplaySize;
 
-	const auto& st = Logwatch::GetSettings();
-
 	float scale = st.HUDFontScale / 100.0;
 	if (scale <= 0.0f) scale = 1.0f;
-
-	static Logwatch::HUDOverlay hudOverlay{};
 
 	// We only fade HUD if it's already on screen.
 	if (hudOverlay.active) {
@@ -487,10 +511,8 @@ void Live::LogWatcherUI::RenderHUDOverlay()
 	if (hudOverlay.nextAt.time_since_epoch().count() != 0 && now < hudOverlay.nextAt)
 		return;
 
-	if (Logwatch::watcher.isHUDQueueEmpty())
+	if (!Logwatch::watcher.tryPopHUDMessage(hudOverlay.current))
 		return;
-
-	Logwatch::watcher.popHUDMessage(hudOverlay.current);
 	hudOverlay.t0 = now;
 	hudOverlay.active = true;
 

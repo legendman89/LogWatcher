@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <mutex>
+
 #include "settings_def.hpp"
 #include "config.hpp"
 
@@ -15,7 +17,29 @@ namespace Logwatch {
 
     inline bool operator!=(const LogWatcherSettings& a, const LogWatcherSettings& b) { return !(a == b); }
 
-    inline LogWatcherSettings& GetSettings() { static LogWatcherSettings st; return st; }
+    class SettingsStore {
+
+    private:
+
+        mutable std::mutex _mutex_;
+
+        LogWatcherSettings settings;
+
+    public:
+
+        LogWatcherSettings read() const;
+
+        void replace(const LogWatcherSettings& replacement);
+    };
+
+    inline SettingsStore& GetSettingsStore() {
+        static SettingsStore store;
+        return store;
+    }
+
+    inline LogWatcherSettings ReadSettings() { return GetSettingsStore().read(); }
+
+    inline void SetSettings(const LogWatcherSettings& settings) { GetSettingsStore().replace(settings); }
 
     void applyNow();
 

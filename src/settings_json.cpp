@@ -20,9 +20,9 @@ void Logwatch::SettingPersister::saveState() {
 	const auto tmp = path + ".tmp";
 
 	try {
-		const auto& s = GetSettings();
+		const auto s = ReadSettings();
 
-		const auto pins = aggr.snapshotPins();
+		const auto pins = aggr.copyPins();
 		const size_t pinsHash = hashPins(pins);
 
 		if (s == oldSettings && pinsHash == oldPinsHash) {
@@ -90,8 +90,9 @@ bool Logwatch::SettingPersister::loadState() {
 		int ver = root.value("version", 1);
 		(void)ver; // (prevents the annoying compiler warnings for now)
 
-		auto& s = GetSettings();
+		auto s = ReadSettings();
 		if (root.contains("settings")) from_json_settings(root["settings"], s);
+		SetSettings(s);
 
 		oldSettings = s;
 

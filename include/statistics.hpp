@@ -29,6 +29,6 @@ namespace Logwatch {
         std::deque<Record> last;  // ring buffer
     };
 
-    using Snapshot = std::unordered_map<std::string, ModStats>;
+    using ModStatsMap = std::unordered_map<std::string, ModStats>;
 
 }

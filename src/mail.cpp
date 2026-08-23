@@ -4,10 +4,10 @@
 #include "translate.hpp"
 #include "utils.hpp"
 
-void Logwatch::LogWatcher::updatePeriodicBase(const Snapshot& snap, const Clock::time_point& now, const int& interval) {
+void Logwatch::LogWatcher::updatePeriodicBase(const ModStatsMap& statsByMod, const Clock::time_point& now, const int& interval) {
     periodicLastPerMod.clear();
     periodicLastTotals = {};
-    for (const auto& [modKey, s] : snap) {
+    for (const auto& [modKey, s] : statsByMod) {
 
         // TODO: again = operator
         Counts c;
@@ -25,9 +25,9 @@ void Logwatch::LogWatcher::updatePeriodicBase(const Snapshot& snap, const Clock:
     periodicNextAt = now + std::chrono::seconds(interval);
 }
 
-void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const Snapshot& snap) {
+void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const ModStatsMap& statsByMod) {
 
-    auto& st = Logwatch::GetSettings();
+    const auto st = Logwatch::ReadSettings();
 
     if (!st.notificationsEnabled || !st.periodicSummaryEnabled) return;
 
@@ -41,7 +41,7 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const Snapshot& snap) {
 
     // Compute initial base
     if (!periodicReady) {
-        updatePeriodicBase(snap, now, intervalSec);
+        updatePeriodicBase(statsByMod, now, intervalSec);
         periodicReady = true;
         return;
     }
@@ -50,11 +50,11 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const Snapshot& snap) {
 
     // Compute diff since last time
     std::vector<EntryDiff> modDiffs;
-    modDiffs.reserve(snap.size());
+    modDiffs.reserve(statsByMod.size());
 
     Counts totalCounts{};
 
-    for (const auto& [modKey, s] : snap) {
+    for (const auto& [modKey, s] : statsByMod) {
 
         Counts curr;
         curr.errors = s.errors;
@@ -86,7 +86,7 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const Snapshot& snap) {
     }
 
     // Update base
-    updatePeriodicBase(snap, now, intervalSec);
+    updatePeriodicBase(statsByMod, now, intervalSec);
 
     if (modDiffs.empty()) return;
 
