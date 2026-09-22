@@ -1,4 +1,4 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Build Status](https://github.com/legendman89/LogWatcher/actions/workflows/build.yml/badge.svg)](https://github.com/legendman89/LogWatcher/actions/workflows/build.yml)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CommonLibVR: ng](https://img.shields.io/badge/CommonLibVR-ng-green.svg)](https://github.com/alandtse/CommonLibVR/tree/ng)
