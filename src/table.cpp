@@ -7,6 +7,29 @@
 #include "watcher.hpp"
 #include "translate.hpp"
 
+bool Live::TableRowSorter::operator()(const int leftIndex, const int rightIndex) const {
+
+	const auto& left = rows[leftIndex];
+	const auto& right = rows[rightIndex];
+
+	if (panel.pinFirst && left.pinned != right.pinned) return left.pinned;
+
+	int result = 0;
+	switch (panel.sortColumn) {
+		case Column::Mod:      result = left.mod < right.mod ? -1 : (left.mod == right.mod ? 0 : 1); break;
+		case Column::Errors:   result = compareCount(left.counts.errors, right.counts.errors); break;
+		case Column::Warnings: result = compareCount(left.counts.warnings, right.counts.warnings); break;
+		case Column::Fails:    result = compareCount(left.counts.fails, right.counts.fails); break;
+		case Column::Others:   result = compareCount(left.counts.others, right.counts.others); break;
+		case Column::Recent:   result = compareCount(left.recent, right.recent); break;
+		case Column::Pinned:   result = compareCount(left.pinned, right.pinned); break;
+		case Column::Reset:    result = 0; break;
+		case Column::Count:    default: result = 0; break;
+	}
+
+	return panel.sortAsc ? result < 0 : result > 0;
+}
+
 bool Live::ConfirmReset(const std::string& mod) {
 	bool reset = false;
 	if (ImGui::BeginPopup("##confirm_reset")) {
@@ -45,10 +68,7 @@ void Live::ResetStyle(TableRow& r) {
 	if (ImGui::IsItemHovered()) ImGui::SetTooltip(Trans::Tr("Watch.Table.Tooltip.Reset").c_str());
 
 	if (!ConfirmReset(r.mod)) return;
-	r.errors = 0;
-	r.warnings = 0;
-	r.fails = 0;
-	r.others = 0;
+	r.counts = {};
 	r.recent = 0;
 }
 
@@ -82,26 +102,7 @@ void Live::filterTable(PanelState& ps, std::vector<int>& view, const std::vector
 }
 
 void Live::sortTable(PanelState& ps, std::vector<int>& view, const std::vector<TableRow>& rows) {
-	auto sorter = [&](int a, int b) {
-		const auto& A = rows[a];
-		const auto& B = rows[b];
-		if (ps.pinFirst && A.pinned != B.pinned) return A.pinned;
-		int res = 0;
-		switch (ps.sortColumn) {
-		case Column::Mod:      res = (A.mod < B.mod) ? -1 : (A.mod == B.mod ? 0 : 1); break;
-		case Column::Errors:   res = (A.errors < B.errors) ? -1 : (A.errors > B.errors ? 1 : 0); break;
-		case Column::Warnings: res = (A.warnings < B.warnings) ? -1 : (A.warnings > B.warnings ? 1 : 0); break;
-		case Column::Fails:    res = (A.fails < B.fails) ? -1 : (A.fails > B.fails ? 1 : 0); break;
-		case Column::Others:   res = (A.others < B.others) ? -1 : (A.others > B.others ? 1 : 0); break;
-		case Column::Recent:   res = (A.recent < B.recent) ? -1 : (A.recent > B.recent ? 1 : 0); break;
-		case Column::Pinned:   res = (A.pinned < B.pinned) ? -1 : (A.pinned > B.pinned ? 1 : 0); break;
-		case Column::Reset:    res = 0; break;
-		case Column::Count:    default: res = 0; break;
-		}
-		return ps.sortAsc ? (res < 0) : (res > 0);
-		};
-
-	std::stable_sort(view.begin(), view.end(), sorter);
+	std::stable_sort(view.begin(), view.end(), TableRowSorter(ps, rows));
 }
 
 void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vector<int>& view) {
@@ -133,27 +134,27 @@ void Live::buildTable(int& selected, std::vector<TableRow>& rows, const std::vec
 
 		// Errors
 		ImGui::TableNextColumn();
-		if (r.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Error);
-		ImGui::Text("%d", r.errors);
-		if (r.errors > 0) ImGui::PopStyleColor();
+		if (r.counts.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Error);
+		ImGui::Text("%d", r.counts.errors);
+		if (r.counts.errors > 0) ImGui::PopStyleColor();
 
 		// Warnings
 		ImGui::TableNextColumn();
-		if (r.warnings > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
-		ImGui::Text("%d", r.warnings);
-		if (r.warnings > 0) ImGui::PopStyleColor();
+		if (r.counts.warnings > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
+		ImGui::Text("%d", r.counts.warnings);
+		if (r.counts.warnings > 0) ImGui::PopStyleColor();
 
 		// Fails
 		ImGui::TableNextColumn();
-		if (r.fails > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
-		ImGui::Text("%d", r.fails);
-		if (r.fails > 0) ImGui::PopStyleColor();
+		if (r.counts.fails > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
+		ImGui::Text("%d", r.counts.fails);
+		if (r.counts.fails > 0) ImGui::PopStyleColor();
 
 		// Other
 		ImGui::TableNextColumn();
-		if (r.others > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Other);
-		ImGui::Text("%d", r.others);
-		if (r.others > 0) ImGui::PopStyleColor();
+		if (r.counts.others > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Other);
+		ImGui::Text("%d", r.counts.others);
+		if (r.counts.others > 0) ImGui::PopStyleColor();
 
 		// Recent
 		ImGui::TableNextColumn();

@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <cstdint>
 #include <deque>
 #include <string>
 #include <chrono>
@@ -9,13 +10,14 @@ namespace Logwatch {
 
     enum Level : uint8_t { kError = 1, kWarning = 2, kFail = 4, kOther = 8 };
 
-    struct ModStats {
-
-        // TODO: this should be in Counts.
+    struct Counts {
         int errors = 0;
         int warnings = 0;
         int fails = 0;
         int others = 0;
+    };
+
+    struct ModStats {
 
         struct Record {
             std::string level;
@@ -26,7 +28,9 @@ namespace Logwatch {
             uint8_t levelMask = Level::kOther;
         };
 
-        std::deque<Record> last;  // ring buffer
+        std::deque<Record> last;
+
+        Counts counts;
     };
 
     using ModStatsMap = std::unordered_map<std::string, ModStats>;

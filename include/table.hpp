@@ -39,17 +39,35 @@ namespace Live {
     // because we have the extra field 'recent'.
     struct TableRow {
         std::string mod;
-        int errors{};
-        int warnings{};
-        int fails{};
-        int others{};
+
+        Logwatch::Counts counts;
+
         int recent{};
+
         bool pinned{};
+    };
+
+    class TableRowSorter {
+
+    private:
+
+        const PanelState& panel;
+        const std::vector<TableRow>& rows;
+
+    public:
+
+        TableRowSorter(const PanelState& panelState, const std::vector<TableRow>& tableRows) : panel(panelState), rows(tableRows) {}
+
+        bool operator()(const int leftIndex, const int rightIndex) const;
     };
 
     inline PanelState& GetPanel() {
         static PanelState s;
         return s;
+    }
+
+    inline int compareCount(const int left, const int right) {
+        return left < right ? -1 : (left > right ? 1 : 0);
     }
 
     inline void PinStyle(TableRow& r) {

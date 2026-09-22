@@ -18,7 +18,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     switch (msg->type) {
     case SKSE::MessagingInterface::kPostLoad:
     {
-        logger::info("SKSE finished loading; initiating watcher");
+        logger::info("SKSE finished loading. Starting the watcher.");
 		Logwatch::settingsPersister.loadState();
 		const auto st = Logwatch::ReadSettings();
         Logwatch::watcher.configurator().loadFromSettings(st);
@@ -31,7 +31,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     }
     case SKSE::MessagingInterface::kSaveGame: 
     {
-		logger::info("Game save detected; saving watcher pinned mods and settings");
+		logger::info("Game saved. Saving settings and pinned mods.");
         Logwatch::settingsPersister.saveState();
 		break;
     }
@@ -46,7 +46,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     {
         Logwatch::watcher.resetNotifications();
         const auto delay = Logwatch::ReadSettings().HUDPostLoadDelaySec;
-        logger::info("Loading game detected, delaying notifications by {}", delay);
+        logger::info("Game loaded. HUD notifications will begin in {} seconds.", delay);
         Logwatch::watcher.setGameReady(true);
         Logwatch::watcher.setHUDStartDelay(delay);
         break;
@@ -57,11 +57,24 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
-    SKSE::Init(skse);
+    
     setupLog(spdlog::level::info);
-    logger::info("Log Watcher Plugin is Loaded");
+    
+    SKSE::Init(skse, false);
+    
+    logger::info("{} v{} by {} (Game v{})", BEAUTIFUL_NAME, CURR_VERSION, AUTHOR_NAME, REL::Module::get().version().string("."));
+    
+    auto messaging = SKSE::GetMessagingInterface();
+    if (!messaging || !messaging->RegisterListener(MessageHandler)) {
+        logger::critical("Failed to register SKSE message listener");
+        return false;
+    }
+
+    logger::info("SKSE message listener is registered successfully");
+
     Trans::GetTranslator().load();
-    SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
+
     Live::Register();
+
     return true;
 }

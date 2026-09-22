@@ -3,6 +3,8 @@
 #include <locale>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <stdexcept>
 
 #include "config.hpp"
 #include "watcher.hpp"
@@ -11,18 +13,28 @@
 #include "documents.hpp"
 #include "aggregator.hpp"
 
-static bool getRealFileSize(const std::filesystem::path& p, uint64_t& size) {
-    std::ifstream file(p, std::ios::binary | std::ios::ate);
-    if (!file) return false;
+Logwatch::LogWatcher Logwatch::watcher;
 
-    const std::streamoff pos = file.tellg();
-    if (pos < 0) return false;
-
-    size = static_cast<uint64_t>(pos);
-    return true;
+void Logwatch::LogWatcher::runWatcher(const std::stop_token& stop) {
+    try {
+        watcherLoop(stop);
+    }
+    catch (const std::exception& e) {
+        logger::error("The watcher stopped after an unexpected error: {}", e.what());
+    }
+    catch (...) {
+        logger::error("The watcher stopped after an unknown error.");
+    }
 }
 
-Logwatch::LogWatcher Logwatch::watcher;
+void Logwatch::LogWatcher::start() {
+    if (worker.joinable()) {
+        logger::warn("The watcher is already running; ignored another start request.");
+        return;
+    }
+    logger::info("Starting the watcher.");
+    worker = std::jthread(std::bind_front(&LogWatcher::runWatcher, this));
+}
 
 void Logwatch::LogWatcher::resetMod(const std::string& modKey) {
 	std::lock_guard lock(_watch_state_mutex_);
@@ -30,7 +42,7 @@ void Logwatch::LogWatcher::resetMod(const std::string& modKey) {
 	periodicLastPerMod.erase(modKey);
 	pinnedState.erase(modKey);
 	saveWatchIfChanged(aggr.copyStats());
-	logger::info("Reset watch counters and cached lines for {}", modKey);
+	logger::info("Cleared counters and cached lines for '{}'.", modKey);
 }
 
 std::string Logwatch::LogWatcher::watchReportPath(const std::string& ext) const {
@@ -55,24 +67,16 @@ std::string Logwatch::LogWatcher::watchTimeStamp() const {
     return out.str();
 }
 
-void Logwatch::LogWatcher::buildSortedWatchCounts(std::vector<std::pair<std::string, Counts>>& sorted, const ModStatsMap& statsByMod) const {
+void Logwatch::LogWatcher::buildSortedWatchCounts(WatchCountList& sorted, const ModStatsMap& statsByMod) const {
     sorted.reserve(statsByMod.size());
     for (const auto& [modKey, s] : statsByMod) {
-        Counts c;
-        c.errors = s.errors;
-        c.warnings = s.warnings;
-        c.fails = s.fails;
-        c.others = s.others;
-        sorted.emplace_back(modKey, c);
+        sorted.emplace_back(modKey, s.counts);
     }
-    std::sort(sorted.begin(), sorted.end(),
-        [](const auto& a, const auto& b) {
-            return a.first < b.first;
-        });
+    std::sort(sorted.begin(), sorted.end(), WatchCountLess{});
 }
 
 size_t Logwatch::LogWatcher::hashWatchStats(const ModStatsMap& statsByMod) const {
-    std::vector<std::pair<std::string, Counts>> sortedStats;
+    WatchCountList sortedStats;
 	buildSortedWatchCounts(sortedStats, statsByMod);
 
 	// Same as FNV-1a, but we mix in counts for each mod.
@@ -81,7 +85,7 @@ size_t Logwatch::LogWatcher::hashWatchStats(const ModStatsMap& statsByMod) const
 
     uint64_t h = FNV_OFFSET;
 
-    for (const auto& [mod, s] : statsByMod) {
+    for (const auto& [mod, count] : sortedStats) {
 
         uint64_t he = FNV_OFFSET;
         for (unsigned char c : mod) {
@@ -91,10 +95,10 @@ size_t Logwatch::LogWatcher::hashWatchStats(const ModStatsMap& statsByMod) const
 
 #define mix(count) he ^= count; he *= FNV_PRIME;
 
-        mix(s.errors);
-        mix(s.warnings);
-        mix(s.fails);
-        mix(s.others);
+        mix(count.errors);
+        mix(count.warnings);
+        mix(count.fails);
+        mix(count.others);
 
         h ^= he;
         h *= FNV_PRIME;
@@ -103,18 +107,38 @@ size_t Logwatch::LogWatcher::hashWatchStats(const ModStatsMap& statsByMod) const
     return size_t(h);
 }
 
-inline void writeWatchToFile(std::ofstream& to, const std::string& ts, const std::vector<std::pair<std::string, Logwatch::Counts>>& sortedStats) {
-    to << "-----[ Watch Report @ " << ts << " ]--------------\n";
-    for (const auto& [mod, c] : sortedStats) {
-        to << mod
-            << ", " << c.errors << " errors"
-            << ", " << c.warnings << " warnings"
-            << ", " << c.fails << " fails"
-            << ", " << c.others << " others"
-            << "\n";
+void Logwatch::LogWatcher::writeWatchLog(std::ofstream& out, const std::string& timestamp, const WatchCountList& counts) const {
+    out << "Log Watcher Report\n";
+    out << " Generated at " << timestamp << " for " << counts.size() << " tracked mods.\n";
+
+    if (counts.empty()) {
+        return;
     }
-    to << "\n";
-    to.flush();
+
+    for (const auto& [mod, count] : counts) {
+        out << "\n" << mod << "\n";
+        out << "  Errors:   " << count.errors << "\n";
+        out << "  Warnings: " << count.warnings << "\n";
+        out << "  Fails:    " << count.fails << "\n";
+        out << "  Others:   " << count.others << "\n";
+    }
+}
+
+void Logwatch::LogWatcher::writeCSVField(std::ofstream& out, const std::string& value) const {
+    out << '"';
+    for (const char c : value) {
+        if (c == '"') out << "\"\"";
+        else out << c;
+    }
+    out << '"';
+}
+
+void Logwatch::LogWatcher::writeWatchCSV(std::ofstream& out, const WatchCountList& counts) const {
+    out << "mod,errors,warnings,fails,others\n";
+    for (const auto& [mod, count] : counts) {
+        writeCSVField(out, mod);
+        out << ',' << count.errors << ',' << count.warnings << ',' << count.fails << ',' << count.others << '\n';
+    }
 }
 
 void Logwatch::LogWatcher::saveWatchIfChanged(const ModStatsMap& statsByMod) {
@@ -122,35 +146,40 @@ void Logwatch::LogWatcher::saveWatchIfChanged(const ModStatsMap& statsByMod) {
 
     const size_t currentHash = hashWatchStats(statsByMod);
     if (currentHash == lastWatchHash) return;
-    lastWatchHash = currentHash;
-    logger::debug("[Watch] Saving watch report for {} tracked mods", statsByMod.size());
 
     const auto outPath = watchReportPath("log");
-    const auto csvPath = watchReportPath("csv");
+    const auto CSVPath = watchReportPath("csv");
+
     fs::create_directories(fs::path(outPath).parent_path());
 
-    std::vector<std::pair<std::string, Counts>> sortedStats;
+    WatchCountList sortedStats;
     buildSortedWatchCounts(sortedStats, statsByMod);
 
     const std::string ts = watchTimeStamp();
 
     try {
         std::ofstream out(outPath, std::ios::trunc);
-        std::ofstream csv(csvPath, std::ios::trunc);
+        std::ofstream CSV(CSVPath, std::ios::trunc);
         if (!out) {
-            logger::error("saveWatchIfChanged failed to open {}", outPath);
+            logger::error("Could not open watch report '{}'.", outPath);
             return;
         }
-        if (!csv) {
-            logger::error("saveWatchIfChanged failed to open {}", csvPath);
+        if (!CSV) {
+            logger::error("Could not open watch data file '{}'.", CSVPath);
             return;
         }
 
-		writeWatchToFile(out, ts, sortedStats);
-		writeWatchToFile(csv, ts, sortedStats);
+		writeWatchLog(out, ts, sortedStats);
+		writeWatchCSV(CSV, sortedStats);
+        out.flush();
+        CSV.flush();
+        if (!out.good()) throw std::runtime_error("writing the watch report failed");
+        if (!CSV.good()) throw std::runtime_error("writing the watch data file failed");
+        lastWatchHash = currentHash;
+        logger::debug("Saved watch report for {} tracked mods.", statsByMod.size());
     }
     catch (const std::exception& e) {
-        logger::error("saveWatchIfChanged failed due to {}", e.what());
+        logger::error("Could not save the watch report: {}", e.what());
     }
 }
 
@@ -163,8 +192,7 @@ void Logwatch::OnMatch(const Match& m) {
 
 Logwatch::LogType Logwatch::classify(const std::filesystem::path& p) {
     const std::string s = Utils::toUTF8(p);
-    return (s.find("Logs\\Script") != std::string::npos || s.find("Logs/Script") != std::string::npos)
-        ? LogType::Papyrus : LogType::Generic;
+    return (s.find("Logs\\Script") != std::string::npos || s.find("Logs/Script") != std::string::npos) ? LogType::Papyrus : LogType::Generic;
 }
 
 bool Logwatch::LogWatcher::shouldInclude(const fs::path& file) const {
@@ -186,7 +214,7 @@ void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::p
 
     if (ec) {
         const std::string rootToPrint = Utils::replaceUsername(Utils::toUTF8(root));
-        logger::info("discoverFiles: cannot iterate over {}: {}", rootToPrint, ec.message());
+        logger::info("Could not scan directory '{}': {}", rootToPrint, ec.message());
         return;
     }
 
@@ -207,7 +235,7 @@ void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::p
 
         if (ec) {
             const std::string rootToPrint = Utils::replaceUsername(Utils::toUTF8(root));
-            logger::info("discoverFiles: skipping path under {}: {}", rootToPrint, ec.message());
+            logger::info("Skipped an unreadable path inside '{}': {}", rootToPrint, ec.message());
             ec.clear();
         }
     }
@@ -220,19 +248,14 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
 
         if (!isFirstPollDone()) {
-            logger::info("Watcher initially starting or resumed");
+            logger::info("Watcher started or resumed.");
         }
 
 		// Handle paused state
         if (getRunState() == RunState::Stopped) {
-            logger::info("Watcher paused; sleeping until resumed");
+            logger::info("Watcher paused and waiting to resume.");
             std::unique_lock wake_lock(_wake_mutex_);
-            _wake_cv_.wait(
-                wake_lock,
-                [&] {
-                    return stop.stop_requested() || getRunState() != RunState::Stopped;
-                }
-            );
+            _wake_cv_.wait(wake_lock, stop, std::bind_front(&LogWatcher::isRunStateActive, this));
             continue;
         }
 
@@ -261,12 +284,11 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
             for (const auto& file : diagnostics) {
                 uint64_t size = 0;
-                if (getRealFileSize(file.path, size)) {
-                    logger::debug("[Heartbeat:File] offset={} size={} | {}",
-                        file.offset, size, Utils::replaceUsername(Utils::toUTF8(file.path)));
+                if (Utils::getRealFileSize(file.path, size)) {
+                    logger::debug("File status: '{}' (offset {}, size {}).", Utils::replaceUsername(Utils::toUTF8(file.path)), file.offset, size);
                 }
             }
-            logger::debug("[Heartbeat] poll={} files={}", pollCount, diagnostics.size());
+            logger::debug("Watcher heartbeat: {} polls completed, {} files tracked.", pollCount, diagnostics.size());
         }
 
         // Schedule notifications / mails
@@ -280,7 +302,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
 		// Handle auto-stop after first poll
         if (getRunState() == RunState::AutoStopPending) {
-            logger::info("Watcher pausing after first poll");
+            logger::info("Watcher paused after completing its first poll.");
 			setRunState(RunState::Stopped);
             continue;
 		}
@@ -295,14 +317,10 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 		// Stop-aware and paused-aware sleep
         std::unique_lock wake_lock(_wake_mutex_);
         const auto until = Clock::now() + sleep_for;
-        _wake_cv_.wait_until( wake_lock, until, 
-            [&] { 
-                return stop.stop_requested() || getRunState() == RunState::Stopped;
-            } 
-        );
+        _wake_cv_.wait_until(wake_lock, stop, until, std::bind_front(&LogWatcher::isRunStateStopped, this));
     }
 
-    logger::info("Watcher thread exited");
+    logger::info("Watcher stopped.");
 }
 
 void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
@@ -341,8 +359,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         fi.state.lastPoll = Clock::now();
 
         uint64_t size = 0;
-        if (!getRealFileSize(p, size)) {
-            logger::debug("discoverFiles: cannot read size of {}", Utils::replaceUsername(canon));
+        if (!Utils::getRealFileSize(p, size)) {
+            logger::debug("Could not read the size of '{}'.", Utils::replaceUsername(canon));
             continue;
         }
 
@@ -387,7 +405,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         const bool exists = fs::exists(workingFile.path, ec);
 
         if (ec) {
-            logger::debug("scanOnce: cannot check {}: {}", Utils::replaceUsername(key), ec.message());
+            logger::debug("Could not inspect '{}': {}", Utils::replaceUsername(key), ec.message());
             continue;
         }
 
@@ -400,8 +418,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         }
 
         uint64_t size = 0;
-        if (!getRealFileSize(workingFile.path, size)) {
-            logger::debug("scanOnce: cannot read size of {}", Utils::replaceUsername(key));
+        if (!Utils::getRealFileSize(workingFile.path, size)) {
+            logger::debug("Could not read the size of '{}'.", Utils::replaceUsername(key));
             continue;
         }
 
@@ -471,8 +489,7 @@ void Logwatch::LogWatcher::tailFile(FileInfo& fi, const uint64_t& size, const st
     buf.resize(offset);
     fi.state.offset += offset;
 
-    logger::debug("[Tail] {} | read {} bytes, offset={}",
-        Utils::toUTF8(fi.path.filename()), offset, fi.state.offset);
+    logger::debug("Read {} bytes from '{}' (new offset {}).", offset, Utils::toUTF8(fi.path.filename()), fi.state.offset);
 
     parseBufferAndEmit(fi, std::move(buf), stop);
 }
@@ -548,7 +565,7 @@ void Logwatch::LogWatcher::addLogDirectories() {
         if (config.watchPapyrus) addIfExists(docs / "My Games" / "Skyrim Special Edition" / "Logs" / "Script");
     }
     else {
-        logger::error("Documents folder not found");
+        logger::error("Could not find the user's Documents folder.");
     }
 }
 
@@ -560,28 +577,31 @@ void Logwatch::LogWatcher::addIfExists(const std::filesystem::path& p) {
     const auto pathToPrint = Utils::replaceUsername(Utils::toUTF8(p));
 
     if (ec) {
-        logger::info("exists({}): {}", pathToPrint, ec.message());
+        logger::info("Could not check whether '{}' exists: {}", pathToPrint, ec.message());
         return; 
     }
 
     const bool is_dir = std::filesystem::is_directory(p, ec);
 
     if (ec) { 
-        logger::info("is_directory({}): {}", pathToPrint, ec.message());
+        logger::info("Could not check whether '{}' is a directory: {}", pathToPrint, ec.message());
         return; 
     }
 
     if (exists && is_dir) {
         try {
             addDirectory(p);
-            logger::info("Watching {}", pathToPrint);
+            logger::info("Watching '{}'.", pathToPrint);
         }
         catch (const std::exception& e) {
-            logger::error("addDirectory({}) failed: {}", pathToPrint, e.what());
+            logger::error("Could not watch '{}': {}", pathToPrint, e.what());
         }
     }
+    else if (!exists) {
+        logger::info("Skipping missing directory '{}'.", pathToPrint);
+    }
     else {
-        logger::info("Skipping {}", pathToPrint);
+        logger::info("Skipping '{}': the path is not a directory.", pathToPrint);
     }
 }
 
@@ -593,10 +613,10 @@ void Logwatch::LogWatcher::startLogWatcher() {
         setCallback(OnMatch);
         start();
 
-        logger::info("Watcher started with configuration:");
+        logger::info("Watcher configuration:");
         config.print();
     }
     catch (const std::exception& e) {
-        logger::error("Watcher start failed: {}", e.what());
+        logger::error("Could not start the watcher: {}", e.what());
     }
 }

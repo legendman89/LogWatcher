@@ -24,12 +24,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
         if (!Logwatch::aggr.isPinned(modKey))
             continue;
 
-        // TODO: override = operator to copy ModStats
-        Counts curr;
-        curr.errors = s.errors;
-        curr.warnings = s.warnings;
-        curr.fails = s.fails;
-        curr.others = s.others;
+        const Counts curr = s.counts;
 
         auto it = pinnedState.find(modKey);
         Counts prev{};
@@ -68,9 +63,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
 
         bool firstPiece = true;
         if (d.errors > 0) {
-            segmentText = (d.errors > 1 ? 
-                Trans::Tr("Notify.Pinned.Errors.Plural", d.errors) : 
-                Trans::Tr("Notify.Pinned.Errors", d.errors));
+            segmentText = d.errors > 1 ? Trans::Tr("Notify.Pinned.Errors.Plural", d.errors) : Trans::Tr("Notify.Pinned.Errors", d.errors);
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kError });
             firstPiece = false;
@@ -81,9 +74,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
                 entry.summary += segmentText;
                 hud.push_back({ segmentText, Level::kOther });
             }
-            segmentText = (d.warnings > 1 ? 
-                Trans::Tr("Notify.Pinned.Warnings.Plural", d.warnings) :
-                Trans::Tr("Notify.Pinned.Warnings", d.warnings));
+            segmentText = d.warnings > 1 ? Trans::Tr("Notify.Pinned.Warnings.Plural", d.warnings) : Trans::Tr("Notify.Pinned.Warnings", d.warnings);
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kWarning });
             firstPiece = false;
@@ -94,9 +85,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
                 entry.summary += segmentText;
                 hud.push_back({ segmentText, Level::kOther });
             }
-            segmentText = (d.fails > 1 ? 
-                Trans::Tr("Notify.Pinned.Fails.Plural", d.fails) :
-                Trans::Tr("Notify.Pinned.Fails", d.fails));
+            segmentText = d.fails > 1 ? Trans::Tr("Notify.Pinned.Fails.Plural", d.fails) : Trans::Tr("Notify.Pinned.Fails", d.fails);
             entry.summary += segmentText;
             hud.push_back({ segmentText, Level::kFail });
         }
@@ -104,9 +93,7 @@ void Logwatch::LogWatcher::mayNotifyPinnedAlerts(const ModStatsMap& statsByMod)
         // TODO: make it inline maybe?
         MailModDiff md;
         md.mod = modKey;
-        md.errors = d.errors;
-        md.warnings = d.warnings;
-        md.fails = d.fails;
+        md.counts = d;
         entry.mods.push_back(std::move(md));
 
         scheduleNotification(std::move(hud));

@@ -18,10 +18,7 @@ void Live::buildTableRows(std::vector<TableRow>& rows) {
 	for (auto& [modKey, s] : statsByMod) {
 		TableRow r;
 		r.mod = modKey;
-		r.errors = s.errors;
-		r.warnings = s.warnings;
-		r.fails = s.fails;
-		r.others = s.others;
+		r.counts = s.counts;
 		r.recent = (int)s.last.size();
 		r.pinned = pinnedMods.count(modKey) != 0;
 		rows.push_back(std::move(r));
@@ -205,16 +202,16 @@ void Live::LogWatcherUI::RenderDetailsWindow() {
 	ImGui::SameLine(0.0f, 18.0f);
 	ImGui::AlignTextToFramePadding();
 	std::string label = Trans::Tr("Watch.Table.Header.Errors"); label += ": %d";
-	ImGui::TextColored(Colors::Error, label.c_str(), modstats.errors);
+	ImGui::TextColored(Colors::Error, label.c_str(), modstats.counts.errors);
 	ImGui::SameLine(0.0f, 10.0f);
 	label = Trans::Tr("Watch.Table.Header.Warnings"); label += ": %d";
-	ImGui::TextColored(Colors::Warning, label.c_str(), modstats.warnings);
+	ImGui::TextColored(Colors::Warning, label.c_str(), modstats.counts.warnings);
 	ImGui::SameLine(0.0f, 10.0f);
 	label = Trans::Tr("Watch.Table.Header.Fails"); label += ": %d";
-	ImGui::TextColored(Colors::Fail, label.c_str(), modstats.fails);
+	ImGui::TextColored(Colors::Fail, label.c_str(), modstats.counts.fails);
 	ImGui::SameLine(0.0f, 10.0f);
 	label = Trans::Tr("Watch.Table.Header.Others"); label += ": %d";
-	ImGui::TextColored(Colors::Other, label.c_str(), modstats.others);
+	ImGui::TextColored(Colors::Other, label.c_str(), modstats.counts.others);
 	ImGui::SameLine(0.0f, 12.0f);
 	label = "("; label += Trans::Tr("Watch.Details.Cached"); label += ": %d / %d)";
 	ImGui::TextColored(Colors::DimGray, label.c_str(), recentCached, int(cap));
@@ -358,19 +355,19 @@ void Live::LogWatcherUI::RenderMailbox()
 					ImGui::TextUnformatted(m.mod.c_str());
 
 					ImGui::TableNextColumn();
-					if (m.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Error);
-					ImGui::Text("%llu", m.errors);
-					if (m.errors > 0) ImGui::PopStyleColor();
+					if (m.counts.errors > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Error);
+					ImGui::Text("%d", m.counts.errors);
+					if (m.counts.errors > 0) ImGui::PopStyleColor();
 
 					ImGui::TableNextColumn();
-					if (m.warnings > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
-					ImGui::Text("%llu", m.warnings);
-					if (m.warnings > 0) ImGui::PopStyleColor();
+					if (m.counts.warnings > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Warning);
+					ImGui::Text("%d", m.counts.warnings);
+					if (m.counts.warnings > 0) ImGui::PopStyleColor();
 
 					ImGui::TableNextColumn();
-					if (m.fails > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
-					ImGui::Text("%llu", m.fails);
-					if (m.fails > 0) ImGui::PopStyleColor();
+					if (m.counts.fails > 0) ImGui::PushStyleColor(ImGuiCol_Text, Colors::Fail);
+					ImGui::Text("%d", m.counts.fails);
+					if (m.counts.fails > 0) ImGui::PopStyleColor();
 				}
 
 				ImGui::EndTable();

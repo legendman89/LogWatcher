@@ -58,12 +58,7 @@ namespace Logwatch {
 
 		inline void from_json_settings(const json& j, LogWatcherSettings& s) {
 
-			auto get = [&](const char* k, auto& dst) {
-				if (j.contains(k)) 
-					dst = j.at(k).get<std::decay_t<decltype(dst)>>();
-			};
-
-			#define SETTING2GETTER(S, D)  get(#S, s.S);
+			#define SETTING2GETTER(S, D) if (j.contains(#S)) s.S = j.at(#S).get<decltype(s.S)>();
 
 			FOREACH_BOOL_SETTING(SETTING2GETTER)
 			FOREACH_SIZE_SETTING(SETTING2GETTER)

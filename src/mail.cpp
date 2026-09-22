@@ -9,12 +9,7 @@ void Logwatch::LogWatcher::updatePeriodicBase(const ModStatsMap& statsByMod, con
     periodicLastTotals = {};
     for (const auto& [modKey, s] : statsByMod) {
 
-        // TODO: again = operator
-        Counts c;
-        c.errors = s.errors;
-        c.warnings = s.warnings;
-        c.fails = s.fails;
-        c.others = s.others;
+        const Counts c = s.counts;
 
         periodicLastPerMod[modKey] = c;
         periodicLastTotals.errors += c.errors;
@@ -56,11 +51,7 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const ModStatsMap& statsByMod
 
     for (const auto& [modKey, s] : statsByMod) {
 
-        Counts curr;
-        curr.errors = s.errors;
-        curr.warnings = s.warnings;
-        curr.fails = s.fails;
-        curr.others = s.others;
+        const Counts curr = s.counts;
 
         Counts prev{};
         if (auto it = periodicLastPerMod.find(modKey); it != periodicLastPerMod.end())
@@ -90,12 +81,7 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const ModStatsMap& statsByMod
 
     if (modDiffs.empty()) return;
 
-    // Sort mods by disaster
-    std::sort(modDiffs.begin(), modDiffs.end(),
-        [](const EntryDiff& a, const EntryDiff& b) {
-            return a.levelCount > b.levelCount;
-        }
-    );
+    std::sort(modDiffs.begin(), modDiffs.end(), EntryDiffMore{});
 
     // Craft message
     const int modsWithIssues = int(modDiffs.size());
@@ -116,9 +102,7 @@ void Logwatch::LogWatcher::mayNorifyPeriodicAlerts(const ModStatsMap& statsByMod
     for (auto i = 0; i < modsToShow; ++i) {
         MailModDiff md;
         md.mod = modDiffs[i].mod;
-        md.errors = modDiffs[i].counts.errors;
-        md.warnings = modDiffs[i].counts.warnings;
-        md.fails = modDiffs[i].counts.fails;
+        md.counts = modDiffs[i].counts;
         entry.mods.push_back(std::move(md));
     }
 

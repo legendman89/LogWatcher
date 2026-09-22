@@ -35,6 +35,15 @@ namespace Logwatch {
     // For the OnMatach or any other callable.
     using Callback = std::function<void(const Match&)>;
 
+    using WatchCountList = std::vector<std::pair<std::string, Counts>>;
+
+    class WatchCountLess {
+    public:
+        inline bool operator()(const WatchCountList::value_type& left, const WatchCountList::value_type& right) const {
+            return left.first < right.first;
+        }
+    };
+
     class LogWatcher {
 
     private:
@@ -92,13 +101,21 @@ namespace Logwatch {
         size_t lastWatchHash{ 0 };
 
         size_t hashWatchStats(const ModStatsMap& statsByMod) const;
-		void buildSortedWatchCounts(std::vector<std::pair<std::string, Counts>>& out, const ModStatsMap& statsByMod) const;
+		void buildSortedWatchCounts(WatchCountList& out, const ModStatsMap& statsByMod) const;
         void saveWatchIfChanged(const ModStatsMap& statsByMod);
+        void writeWatchLog(std::ofstream& out, const std::string& timestamp, const WatchCountList& counts) const;
+        void writeCSVField(std::ofstream& out, const std::string& value) const;
+        void writeWatchCSV(std::ofstream& out, const WatchCountList& counts) const;
         std::string watchReportPath(const std::string& ext) const;
         std::string watchTimeStamp() const;
 
         // Worker body.
         void watcherLoop(const std::stop_token& stop);
+        void runWatcher(const std::stop_token& stop);
+
+        inline bool isRunStateActive() const noexcept { return runState.load(std::memory_order_relaxed) != RunState::Stopped; }
+
+        inline bool isRunStateStopped() const noexcept { return runState.load(std::memory_order_relaxed) == RunState::Stopped; }
 
         // Scan functions
         void scanOnce(const std::stop_token& stop);
@@ -213,26 +230,7 @@ namespace Logwatch {
             callback = std::move(cb);
         }
 
-        inline void start() {
-            if (worker.joinable()) {
-                logger::warn("Watcher thread is already running; start ignored");
-                return;
-            }
-            logger::info("Starting Watcher thread");
-            worker = std::jthread(
-                [this](const std::stop_token& st) { 
-                    try {
-                        watcherLoop(st);
-                    }
-                    catch (const std::exception& e) {
-                        logger::error("Unhandled exception in Watcher thread: {}", e.what());
-                    }
-                    catch (...) {
-                        logger::error("Unknown unhandled exception in Watcher thread");
-					}
-                }
-            );
-        }
+        void start();
 
         inline void stop() {
             if (!worker.joinable()) return;

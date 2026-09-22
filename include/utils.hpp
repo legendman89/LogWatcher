@@ -48,6 +48,18 @@ namespace Utils {
         }
     }
 
+    inline bool getRealFileSize(const std::filesystem::path& p, uint64_t& size) {
+        std::ifstream file(p, std::ios::binary | std::ios::ate);
+        if (!file) return false;
+
+        const std::streamoff pos = file.tellg();
+        if (pos < 0) return false;
+
+        size = static_cast<uint64_t>(pos);
+        return true;
+    }
+
+
     inline bool isCppExt(const std::string& ext) {
         static const char* k[] = { "c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "ipp", "inl", "tpp", "ixx", "cppm" };
         for (auto* e : k)

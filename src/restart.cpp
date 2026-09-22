@@ -9,11 +9,54 @@
 std::atomic<bool> Logwatch::Restart::apply_inprogress{ false };
 std::atomic<bool> Logwatch::Restart::apply_done{ false };
 
+void Logwatch::Restart::discardBackupWhenWatcherReady() {
+	while (watcher.isWarmingUp()) std::this_thread::sleep_for(std::chrono::milliseconds(25));
+	aggr.invalidateBackup();
+}
+
+void Logwatch::Restart::RestartTask::operator()() const {
+	try {
+		logger::info("Restarting the watcher.");
+		watcher.nudge();
+		watcher.stop();
+
+		if (enableDeepScan) {
+			aggr.backupAndClear();
+			watcher.clear();
+			watcher.startLogWatcher();
+		}
+		else if (disableDeepScan) {
+			watcher.clear();
+			aggr.restoreAndClear();
+			watcher.startLogWatcher();
+			std::jthread(discardBackupWhenWatcherReady).detach();
+		}
+		else {
+			watcher.clear();
+			aggr.clear();
+			watcher.startLogWatcher();
+		}
+
+		apply_done.store(true, std::memory_order_relaxed);
+		logger::info("Watcher restart completed.");
+	}
+	catch (const std::exception& e) {
+		logger::error("Could not restart the watcher: {}", e.what());
+		apply_done.store(false, std::memory_order_relaxed);
+	}
+	catch (...) {
+		logger::error("Could not restart the watcher due to an unknown error.");
+		apply_done.store(false, std::memory_order_relaxed);
+	}
+
+	apply_inprogress.store(false, std::memory_order_relaxed);
+}
+
 bool Logwatch::Restart::restartWatcher(const LogWatcherSettings& st, const Config& prev_config) {
 
 	bool expected = false;
 	if (!apply_inprogress.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
-		logger::info("Restart already in progress; ignoring duplicate Apply.");
+		logger::info("The watcher is already restarting; ignored another Apply request.");
 		return false; // already running
 	}
 
@@ -22,55 +65,7 @@ bool Logwatch::Restart::restartWatcher(const LogWatcherSettings& st, const Confi
 	const bool toDeep = st.deepScan && !prev_config.deepScan;
 	const bool fromDeep = !st.deepScan && prev_config.deepScan;
 
-	// Launch async restart (we got to be careful here, freaking this up will mess the watcher)
-	std::jthread([toDeep, fromDeep]() mutable {
-		try {
-			logger::info("Restarting Log Watcher asynchronously");
-
-			// Wake the worker so stop() doesn't wait a full poll period
-			watcher.nudge();
-
-			// Stop Watcher and join
-			watcher.stop();
-
-			if (toDeep) {				
-				aggr.backupAndClear();
-				watcher.clear();
-				watcher.startLogWatcher();
-			}
-			else if (fromDeep) { 
-				watcher.clear();
-				aggr.restoreAndClear();
-				watcher.startLogWatcher();
-				// wait until fully live and kiss the backup goodbye
-				std::jthread([] {
-					while (Logwatch::watcher.isWarmingUp()) {
-						std::this_thread::sleep_for(std::chrono::milliseconds(25));
-					}
-					aggr.invalidateBackup();
-				}).detach();
-			}
-			else {
-				watcher.clear();
-				aggr.clear();
-				watcher.startLogWatcher();
-			}
-
-			apply_done.store(true, std::memory_order_relaxed);
-			logger::info("Restart complete");
-		}
-		catch (const std::exception& e) {
-			logger::error("Restart failed: {}", e.what());
-			apply_done.store(false, std::memory_order_relaxed);
-		}
-		catch (...) {
-			logger::error("Restart failed: why so serious?");
-			apply_done.store(false, std::memory_order_relaxed);
-		}
-
-		apply_inprogress.store(false, std::memory_order_relaxed);
-
-	}).detach();
+	std::jthread(RestartTask(toDeep, fromDeep)).detach();
 
 	return true;
 }

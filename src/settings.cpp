@@ -17,7 +17,7 @@ void Logwatch::SettingsStore::replace(const LogWatcherSettings& replacement) {
 
 void Logwatch::loadDefaults(const LogWatcherSettings& factory) {
 	SetSettings(factory);
-	logger::info("Settings reset to defaults");
+	logger::info("Settings restored to their defaults.");
 }
 
 // Implement my restart rules
@@ -49,11 +49,11 @@ void Logwatch::applyNow() {
     Logwatch::Restart::apply_inprogress.store(false, std::memory_order_relaxed);
 
     const bool needRestart = restartRequired(st, prev_config);
-    logger::info("Is restart needed to apply settings? {}", needRestart);
+    logger::info("Applying settings (watcher restart required: {}).", needRestart ? "yes" : "no");
 
     if (!needRestart) {
 
-        logger::info("Applying new configuration without restarting watcher");
+        logger::info("Settings applied without restarting the watcher.");
         config.print();
 
         watcher.nudge();

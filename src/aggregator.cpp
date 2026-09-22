@@ -9,10 +9,10 @@ void Logwatch::Aggregator::add(const Match& m) {
 	auto& s = mods.try_emplace(key).first->second; // avois creating temporary copies of ModStats
 
 	uint8_t mask = Level::kOther;
-	if (m.level == "error") { ++s.errors; mask = Level::kError; }
-	else if (m.level == "warning") { ++s.warnings; mask = Level::kWarning; }
-	else if (m.level == "fail") { ++s.fails; mask = Level::kFail; }
-	else { ++s.others; }
+	if (m.level == "error") { ++s.counts.errors; mask = Level::kError; }
+	else if (m.level == "warning") { ++s.counts.warnings; mask = Level::kWarning; }
+	else if (m.level == "fail") { ++s.counts.fails; mask = Level::kFail; }
+	else { ++s.counts.others; }
 
     s.last.emplace_back( ModStats::Record{ m.level, m.file, m.line, m.lineNo, m.when, mask });
 

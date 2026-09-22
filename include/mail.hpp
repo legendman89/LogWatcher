@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -11,15 +13,25 @@ namespace Logwatch {
 
     struct MailModDiff {
         std::string mod;
-        uint64_t errors = 0;
-        uint64_t warnings = 0;
-        uint64_t fails = 0;
+
+        Counts counts;
     };
 
     struct EntryDiff {
         std::string mod;
-        Counts counts;
+
         uint64_t levelCount;
+
+        Counts counts;
+    };
+
+    class EntryDiffMore {
+
+    public:
+
+        inline bool operator()(const EntryDiff& left, const EntryDiff& right) const {
+            return left.levelCount > right.levelCount;
+        }
     };
 
     struct MailEntry {
