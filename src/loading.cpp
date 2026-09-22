@@ -101,7 +101,7 @@ void Live::renderLoadingOverlay(const std::string& msg, const float& offset, Pos
     }
 
     // Position
-    ImVec2 saved; ImGui::GetCursorScreenPos(&saved);
+    ImVec2 saved = ImGui::GetCursorScreenPos();
     if (pos) {
         pos(offset);
     }
@@ -121,7 +121,7 @@ void Live::renderLoadingOverlay(const std::string& msg, const float& offset, Pos
 			break;
 	}
 
-    ImVec2 curr; ImGui::GetCursorScreenPos(&curr);
+    const ImVec2 curr = ImGui::GetCursorScreenPos();
 	saved.x = curr.x;
     ImGui::SetCursorScreenPos(saved);
 }

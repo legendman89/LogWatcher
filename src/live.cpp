@@ -401,8 +401,7 @@ void Live::LogWatcherUI::DrawHUDText(
 
 	float totalWidth = 0.0f;
 	for (const auto& seg : hud) {
-		ImVec2 segSize;
-		ImGui::CalcTextSize(&segSize, seg.text.c_str(), nullptr, false, 0.0f);
+		const ImVec2 segSize = ImGui::CalcTextSize(seg.text.c_str());
 		totalWidth += segSize.x;
 	}
 
@@ -428,8 +427,7 @@ void Live::LogWatcherUI::DrawHUDText(
 	ImVec2 pos(screen.x - scaledWidth - MARGIN_X, MARGIN_Y);
 
 	for (const auto& seg : hud) {
-		ImVec2 segSize;
-		ImGui::CalcTextSize(&segSize, seg.text.c_str(), nullptr, false, 0.0f);
+		const ImVec2 segSize = ImGui::CalcTextSize(seg.text.c_str());
 		const auto& segColor = ImGui::ColorConvertFloat4ToU32(LevelColor(seg.level, alpha));
 		ImGui::ImDrawListManager::AddText(drawList, defaultFont, scaledSize, pos, segColor, seg.text.c_str());
 		pos.x += segSize.x * fontScale;

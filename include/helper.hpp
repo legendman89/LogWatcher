@@ -9,15 +9,11 @@
 namespace Live {
 
     inline ImVec2 GetAvail() {
-        ImVec2 out{};
-        ImGui::GetContentRegionAvail(&out);
-        return out;
+        return ImGui::GetContentRegionAvail();
     }
 
     inline ImVec2 GetWinMax() {
-        ImVec2 out{};
-        ImGui::GetWindowContentRegionMax(&out);
-        return out;
+        return ImGui::GetWindowContentRegionMax();
     }
 
     inline const ImVec4& LevelColor(const std::string& lvl) {
